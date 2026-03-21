@@ -230,11 +230,13 @@ class Builder {
   }
 
   // ── Section heading with icon ────────────────────────────────────────────
+  // minFollowHeight: estimate of content that must appear with heading (keeps them together)
   addSectionHeading(
     title: string,
-    icon: 'check' | 'x' | 'bang'
+    icon: 'check' | 'x' | 'bang',
+    minFollowHeight = 20
   ) {
-    this.need(16)
+    this.need(16 + minFollowHeight)
     const doc = this.doc
     const r = 5
     const cx = ML + r
@@ -412,6 +414,10 @@ class Builder {
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(9)
     doc.text('Visit Clinic Page', bx + bw / 2, this.y + 8, { align: 'center' })
+
+    // Make the button clickable
+    doc.link(bx, this.y, bw, 12, { url: this.quote.clinicProfileUrl! })
+
     this.y += 18
   }
 
@@ -446,7 +452,9 @@ export function generateQuotePDF(quote: QuoteData, agent: AgentProfile): void {
   b.addClinicPriceBlock()
 
   if (quote.inclusions.length > 0) {
-    b.addSectionHeading('Package Includes:', 'check')
+    // Reserve heading + at least 2 items worth of space
+    const inclH = Math.min(quote.inclusions.length * 8, 40)
+    b.addSectionHeading('Package Includes:', 'check', inclH)
     b.addBulletList(quote.inclusions)
     b.y += 4
   }
@@ -455,7 +463,9 @@ export function generateQuotePDF(quote: QuoteData, agent: AgentProfile): void {
 
   // ── Exclusions ────────────────────────────────────────────────────────
   if (quote.exclusions.length > 0) {
-    b.addSectionHeading('Package Excludes:', 'x')
+    // Reserve heading + all exclusion items so they never orphan across pages
+    const exclH = Math.min(quote.exclusions.length * 8, 50)
+    b.addSectionHeading('Package Excludes:', 'x', exclH)
     b.addBulletList(quote.exclusions)
     b.y += 4
   }
