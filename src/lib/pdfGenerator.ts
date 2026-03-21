@@ -303,16 +303,20 @@ class Builder {
     this.addDivider()
     const doc = this.doc
 
+    const valueX = ML + 56
+    const maxValueW = PW - MR - valueX
     for (const [label, value] of visible) {
-      this.need(10)
+      const valueLines = doc.splitTextToSize(value!, maxValueW)
+      const rowH = (valueLines.length as number) * 6 + 4
+      this.need(rowH)
       tc(doc, C.gray)
       doc.setFont('helvetica', 'normal')
       doc.setFontSize(10)
       doc.text(label, ML, this.y)
       tc(doc, C.darkText)
       doc.setFont('helvetica', 'bold')
-      doc.text(value!, ML + 56, this.y)
-      this.y += 9
+      doc.text(valueLines, valueX, this.y)
+      this.y += rowH
     }
   }
 
@@ -390,6 +394,7 @@ class Builder {
       ['Email :', agent.email],
       ['Phone :', agent.phone],
     ]
+    // Value x at ML+60 clears the longest label "Your Agent's Name :" at 10pt
     for (const [label, value] of rows) {
       this.need(9)
       tc(doc, C.gray)
@@ -398,7 +403,7 @@ class Builder {
       doc.text(label, ML + 10, this.y)
       tc(doc, C.darkText)
       doc.setFont('helvetica', 'bold')
-      doc.text(value, ML + 42, this.y)
+      doc.text(value, ML + 60, this.y)
       this.y += 8
     }
   }
