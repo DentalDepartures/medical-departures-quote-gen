@@ -267,15 +267,16 @@ class Builder {
   // ── Bullet list ──────────────────────────────────────────────────────────
   addBulletList(items: string[]) {
     const doc = this.doc
+    const lineH = 5.5   // tight single-line spacing to match reference PDF
     for (const item of items) {
-      this.need(9)
+      this.need(7)
       tc(doc, C.darkText)
       doc.setFont('helvetica', 'normal')
       doc.setFontSize(10)
       doc.text('—', ML + 3, this.y + 1)
       const lines = doc.splitTextToSize(item, CW - 14)
       doc.text(lines, ML + 10, this.y + 1)
-      this.y += (lines.length as number) * 6.5 + 1.5
+      this.y += (lines.length as number) * lineH + 1
     }
   }
 
@@ -428,17 +429,16 @@ class Builder {
   // ── Important notes ──────────────────────────────────────────────────────
   addImportantNotes() {
     if (!this.quote.importantNotes) return
-    this.addSectionHeading('Important Notes:', 'bang')
-    const doc = this.doc
-    tc(doc, C.darkText)
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(10)
-    const lines = doc.splitTextToSize(this.quote.importantNotes, CW - 8)
-    for (const line of lines) {
-      this.need(7)
-      doc.text(line, ML + 4, this.y)
-      this.y += 7
-    }
+
+    // Split notes into sentences and render as bullet points
+    const bullets = this.quote.importantNotes
+      .split(/(?<=[.!?])\s+/)           // split after sentence-ending punctuation
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0)
+
+    const estimatedH = Math.min(bullets.length * 7, 60)
+    this.addSectionHeading('Important Notes:', 'bang', estimatedH)
+    this.addBulletList(bullets)
     this.y += 4
   }
 
