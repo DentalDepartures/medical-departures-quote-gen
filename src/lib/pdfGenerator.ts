@@ -3,16 +3,18 @@ import type { QuoteData, AgentProfile } from '../types'
 
 // ── Palette ────────────────────────────────────────────────────────────────
 const C = {
-  navy:      [30,  58,  95]  as [number, number, number],
-  navyLight: [43,  82, 128]  as [number, number, number],
+  navy:      [91,  168, 212] as [number, number, number],  // Dental Departures light blue
+  navyLight: [70,  148, 192] as [number, number, number],  // slightly deeper variant
   white:     [255, 255, 255] as [number, number, number],
   darkText:  [17,  24,  39]  as [number, number, number],
   gray:      [107, 114, 128] as [number, number, number],
   lineGray:  [229, 231, 235] as [number, number, number],
-  cream:     [249, 245, 232] as [number, number, number],
-  blue:      [37,  99, 235]  as [number, number, number],
+  cream:     [232, 246, 252] as [number, number, number],  // light blue tint for savings area
+  blue:      [91,  168, 212] as [number, number, number],  // same accent blue for ✓
   red:       [220, 38,  38]  as [number, number, number],
   green:     [22,  163, 74]  as [number, number, number],
+  charcoal:  [55,  55,  55]  as [number, number, number],  // logo text
+  logoBlue:  [91,  168, 211] as [number, number, number],  // globe blue
 }
 
 // ── Layout constants ───────────────────────────────────────────────────────
@@ -42,24 +44,47 @@ function formatPrice(amount: number | null, currency: string): string {
   }
 }
 
-// ── Logo — matches Medical Departures style ────────────────────────────────
+// ── Logo — Dental Departures globe + tooth ────────────────────────────────
 function drawLogo(doc: jsPDF, x: number, y: number) {
-  // Red cross — large, bold, square
-  const cw = 14  // cross total width
-  const ch = 14  // cross total height
-  const bar = 5  // bar thickness
-  fc(doc, C.red)
-  doc.rect(x + (cw - bar) / 2, y, bar, ch, 'F')      // vertical bar
-  doc.rect(x, y + (ch - bar) / 2, cw, bar, 'F')      // horizontal bar
+  const cx = x + 9
+  const cy = y + 8
+  const r  = 9
 
-  // Brand text — tight to the right of the cross
-  const tx = x + cw + 3
-  tc(doc, C.navy)
+  // Globe fill
+  fc(doc, C.logoBlue)
+  doc.circle(cx, cy, r, 'F')
+
+  // Globe grid lines (white strokes)
+  dc(doc, C.white)
+  doc.setLineWidth(0.35)
+  // Horizontal parallels
+  doc.line(cx - r + 1.5, cy - 3.5, cx + r - 1.5, cy - 3.5)
+  doc.line(cx - r + 1.5, cy + 3.5, cx + r - 1.5, cy + 3.5)
+  // Meridian ellipses
+  doc.ellipse(cx, cy, 4.5, r, 'S')
+  doc.ellipse(cx, cy, 8.5, r, 'S')
+
+  // Tooth shape (white) — crown + two roots
+  const tw = 5.5   // tooth half-width
+  const th = 5     // crown height
+  const ty = cy - th / 2 - 1.5  // top of crown
+  fc(doc, C.white)
+  // Crown — ellipse
+  doc.ellipse(cx, ty + th / 2, tw, th / 2 + 1, 'F')
+  // Roots — two narrow rectangles
+  doc.rect(cx - tw + 1,   ty + th - 0.5, tw - 1.5, 4.5, 'F')
+  doc.rect(cx + 1,        ty + th - 0.5, tw - 1.5, 4.5, 'F')
+  // Clip bottom of crown ellipse overflow with logo blue
+  fc(doc, C.logoBlue)
+  doc.rect(cx - tw, cy + 5.5, tw * 2, 4, 'F')
+
+  // Brand text
+  tc(doc, C.charcoal)
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(11)
-  doc.text('DENTAL', tx, y + 7)
-  doc.setFontSize(8)
-  doc.text('DEPARTURES', tx, y + 13)
+  doc.setFontSize(12)
+  doc.text('DENTAL', x + 21, y + 7)
+  doc.setFontSize(9)
+  doc.text('DEPARTURES', x + 21, y + 13)
 }
 
 // ── Page header ────────────────────────────────────────────────────────────
@@ -240,28 +265,34 @@ class Builder {
     icon: 'check' | 'x' | 'bang',
     minFollowHeight = 20
   ) {
-    this.need(22 + minFollowHeight)
+    this.need(20 + minFollowHeight)
     const doc = this.doc
-    const r = 7   // larger icon radius to match reference PDF
-    const cx = ML + r
-    const cy = this.y + r + 1
 
-    const iconColor = icon === 'check' ? C.blue : C.red
-    fc(doc, iconColor)
-    doc.circle(cx, cy, r, 'F')
-
-    tc(doc, C.white)
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(12)
-    const sym = icon === 'check' ? '✓' : icon === 'x' ? '✕' : '!'
-    doc.text(sym, cx - (icon === 'bang' ? 1 : 2.5), cy + 2.2)
+
+    if (icon === 'check') {
+      // Plain ✓ in accent blue — no circle
+      tc(doc, C.blue)
+      doc.setFontSize(20)
+      doc.text('✓', ML, this.y + 12)
+    } else if (icon === 'x') {
+      // Plain ✕ in red — no circle
+      tc(doc, C.red)
+      doc.setFontSize(20)
+      doc.text('✕', ML, this.y + 12)
+    } else {
+      // Large bold ! in dark text — no circle
+      tc(doc, C.darkText)
+      doc.setFontSize(24)
+      doc.text('!', ML + 2, this.y + 12)
+    }
 
     tc(doc, C.navy)
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(14)
-    doc.text(title, ML + r * 2 + 4, this.y + r + 3)
+    doc.text(title, ML + 13, this.y + 10)
 
-    this.y += r * 2 + 8
+    this.y += 18
   }
 
   // ── Bullet list ──────────────────────────────────────────────────────────
