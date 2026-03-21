@@ -430,9 +430,10 @@ class Builder {
   addImportantNotes() {
     if (!this.quote.importantNotes) return
 
-    // Split notes into sentences and render as bullet points
+    // Split notes into sentences — replace ". " with a sentinel, then split
     const bullets = this.quote.importantNotes
-      .split(/(?<=[.!?])\s+/)           // split after sentence-ending punctuation
+      .replace(/([.!?])\s+/g, '$1|||')
+      .split('|||')
       .map((s) => s.trim())
       .filter((s) => s.length > 0)
 
