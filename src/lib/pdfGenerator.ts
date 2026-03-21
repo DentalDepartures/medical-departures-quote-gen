@@ -270,27 +270,46 @@ class Builder {
 
     doc.setFont('helvetica', 'bold')
 
+    // Draw icon as a filled circle badge with white symbol inside
+    const icx = ML + 6   // circle centre x
+    const icy = this.y + 9  // circle centre y
+    const ir  = 6           // circle radius
+
     if (icon === 'check') {
-      // Plain ✓ in accent blue — no circle
-      tc(doc, C.blue)
-      doc.setFontSize(20)
-      doc.text('✓', ML, this.y + 12)
+      // Blue filled circle
+      fc(doc, C.blue)
+      dc(doc, C.blue)
+      doc.circle(icx, icy, ir, 'F')
+      // White checkmark lines
+      dc(doc, C.white)
+      doc.setLineWidth(1.5)
+      doc.line(icx - 3.5, icy,      icx - 1, icy + 3)    // short left leg
+      doc.line(icx - 1,   icy + 3,  icx + 3.5, icy - 3)  // long right leg
     } else if (icon === 'x') {
-      // Plain ✕ in red — no circle
-      tc(doc, C.red)
-      doc.setFontSize(20)
-      doc.text('✕', ML, this.y + 12)
+      // Red filled circle
+      fc(doc, C.red)
+      dc(doc, C.red)
+      doc.circle(icx, icy, ir, 'F')
+      // White X lines
+      dc(doc, C.white)
+      doc.setLineWidth(1.5)
+      doc.line(icx - 3, icy - 3, icx + 3, icy + 3)
+      doc.line(icx + 3, icy - 3, icx - 3, icy + 3)
     } else {
-      // Large bold ! in dark text — no circle
-      tc(doc, C.darkText)
-      doc.setFontSize(24)
-      doc.text('!', ML + 2, this.y + 12)
+      // Orange/amber filled circle with white !
+      fc(doc, [245, 158, 11] as [number, number, number])
+      dc(doc, [245, 158, 11] as [number, number, number])
+      doc.circle(icx, icy, ir, 'F')
+      tc(doc, C.white)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(13)
+      doc.text('!', icx - 1.2, icy + 4)
     }
 
     tc(doc, C.navy)
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(14)
-    doc.text(title, ML + 13, this.y + 10)
+    doc.text(title, ML + 16, this.y + 10)
 
     this.y += 18
   }
