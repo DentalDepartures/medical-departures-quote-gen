@@ -78,7 +78,7 @@ async function callAnthropic(rawText: string, apiKey: string): Promise<QuoteData
 }
 
 export async function extractQuoteData(rawText: string): Promise<QuoteData> {
-  // 1. Try the server-side proxy first (works in Vercel production + vercel dev)
+  // 1. Try the server-side proxy first (works in Netlify/Vercel production)
   try {
     const res = await fetch('/api/extract', {
       method: 'POST',
@@ -90,9 +90,19 @@ export async function extractQuoteData(rawText: string): Promise<QuoteData> {
       if (data && !data.error) {
         return data as QuoteData
       }
+      // Server responded but Anthropic returned an error (e.g. no credits)
+      if (data?.error) {
+        throw new Error(data.error)
+      }
     }
-  } catch {
-    // Proxy not available — fall through to direct call
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    // Only fall through to direct call if the proxy itself wasn't reachable.
+    // If the proxy reached Anthropic and got back a real error, surface it.
+    if (msg.includes('Anthropic error') || msg.includes('credit balance') || msg.includes('invalid')) {
+      throw err
+    }
+    // Otherwise proxy not available — fall through to direct call
   }
 
   // 2. Fall back to direct Anthropic call using localStorage API key
