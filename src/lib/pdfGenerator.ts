@@ -1,6 +1,28 @@
 import jsPDF from 'jspdf'
 import type { QuoteData, AgentProfile } from '../types'
 
+// ── Font loader ─────────────────────────────────────────────────────────────
+async function loadFontBase64(url: string): Promise<string> {
+  const buf = await fetch(url).then((r) => r.arrayBuffer())
+  const bytes = new Uint8Array(buf)
+  let binary = ''
+  for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i])
+  return btoa(binary)
+}
+
+async function buildDoc(): Promise<jsPDF> {
+  const [regular, bold] = await Promise.all([
+    loadFontBase64('/fonts/Roboto-Regular.ttf'),
+    loadFontBase64('/fonts/Roboto-Bold.ttf'),
+  ])
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+  doc.addFileToVFS('Roboto-Regular.ttf', regular)
+  doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal')
+  doc.addFileToVFS('Roboto-Bold.ttf', bold)
+  doc.addFont('Roboto-Bold.ttf', 'Roboto', 'bold')
+  return doc
+}
+
 // ── Palette ────────────────────────────────────────────────────────────────
 const C = {
   navy:      [91,  168, 212] as [number, number, number],  // Dental Departures light blue
@@ -80,7 +102,7 @@ function drawLogo(doc: jsPDF, x: number, y: number) {
 
   // Brand text
   tc(doc, C.charcoal)
-  doc.setFont('helvetica', 'bold')
+  doc.setFont('Roboto', 'bold')
   doc.setFontSize(12)
   doc.text('DENTAL', x + 21, y + 7)
   doc.setFontSize(9)
@@ -93,19 +115,19 @@ function drawHeader(doc: jsPDF, quote: QuoteData) {
 
   // "Quote for:" label
   tc(doc, C.gray)
-  doc.setFont('helvetica', 'normal')
+  doc.setFont('Roboto', 'normal')
   doc.setFontSize(8)
   doc.text('Quote for:', ML, y + 5)
 
   // Patient name
   tc(doc, C.darkText)
-  doc.setFont('helvetica', 'bold')
+  doc.setFont('Roboto', 'bold')
   doc.setFontSize(13)
   doc.text(quote.patientName || 'Patient Name', ML, y + 12)
 
   // Date
   tc(doc, C.gray)
-  doc.setFont('helvetica', 'normal')
+  doc.setFont('Roboto', 'normal')
   doc.setFontSize(8)
   const dateStr = quote.quoteDate
     ? quote.quoteDate
@@ -136,7 +158,7 @@ function drawFooter(doc: jsPDF) {
   doc.line(ML, FOOTER_Y - 3, PW - MR, FOOTER_Y - 3)
 
   tc(doc, C.gray)
-  doc.setFont('helvetica', 'italic')
+  doc.setFont('Roboto', 'normal')
   doc.setFontSize(6.5)
   doc.text(disclaimer, ML, FOOTER_Y + 2)
 }
@@ -147,8 +169,8 @@ class Builder {
   y: number
   quote: QuoteData
 
-  constructor(quote: QuoteData) {
-    this.doc = new jsPDF({ unit: 'mm', format: 'a4' })
+  constructor(quote: QuoteData, doc: jsPDF) {
+    this.doc = doc
     this.quote = quote
     this.y = HEADER_BOTTOM + 8
     drawHeader(this.doc, quote)
@@ -171,7 +193,7 @@ class Builder {
     this.need(16)
     const name = this.quote.treatmentName || 'Dental Treatment'
     tc(this.doc, C.navy)
-    this.doc.setFont('helvetica', 'bold')
+    this.doc.setFont('Roboto', 'bold')
     this.doc.setFontSize(17)
     this.doc.text(`Treatment:  ${name}`, ML, this.y + 8)
     this.y += 18
@@ -191,7 +213,7 @@ class Builder {
     doc.rect(ML + 0.5, blockY - 1.5, 5, 2, 'F') // roof-ish line
 
     tc(doc, C.darkText)
-    doc.setFont('helvetica', 'bold')
+    doc.setFont('Roboto', 'bold')
     doc.setFontSize(11)
     doc.text(this.quote.clinicName || '', ML + 9, blockY + 4.5)
 
@@ -205,7 +227,7 @@ class Builder {
     doc.triangle(ML + 1.5, blockY + 16.5, ML + 4.5, blockY + 16.5, ML + 3, blockY + 19.5, 'F')
 
     tc(doc, C.gray)
-    doc.setFont('helvetica', 'normal')
+    doc.setFont('Roboto', 'normal')
     doc.setFontSize(10)
     doc.text(this.quote.clinicLocation || '', ML + 9, blockY + 15)
 
@@ -220,12 +242,12 @@ class Builder {
 
       // "Price:" small label
       tc(doc, C.white)
-      doc.setFont('helvetica', 'normal')
+      doc.setFont('Roboto', 'normal')
       doc.setFontSize(8.5)
       doc.text('Price:', bx + 5, blockY + 5)
 
       // Price amount — large bold on second line
-      doc.setFont('helvetica', 'bold')
+      doc.setFont('Roboto', 'bold')
       doc.setFontSize(14)
       doc.text(formatPrice(this.quote.price, this.quote.currency), bx + 5, blockY + 16)
 
@@ -234,23 +256,23 @@ class Builder {
       doc.rect(bx, blockY + 23, bw, 20, 'F')
 
       tc(doc, C.gray)
-      doc.setFont('helvetica', 'normal')
+      doc.setFont('Roboto', 'normal')
       doc.setFontSize(8.5)
 
       let savY = blockY + 30
       if (this.quote.reducedFrom !== null) {
         doc.text('Reduced from:', bx + 4, savY)
         tc(doc, C.darkText)
-        doc.setFont('helvetica', 'bold')
+        doc.setFont('Roboto', 'bold')
         doc.text(formatPrice(this.quote.reducedFrom, this.quote.currency), bx + 38, savY)
-        doc.setFont('helvetica', 'normal')
+        doc.setFont('Roboto', 'normal')
         tc(doc, C.gray)
         savY += 7
       }
       if (this.quote.savings !== null) {
         doc.text('Savings:', bx + 4, savY)
         tc(doc, C.darkText)
-        doc.setFont('helvetica', 'bold')
+        doc.setFont('Roboto', 'bold')
         doc.text(formatPrice(this.quote.savings, this.quote.currency), bx + 25, savY)
       }
     }
@@ -268,48 +290,25 @@ class Builder {
     this.need(20 + minFollowHeight)
     const doc = this.doc
 
-    doc.setFont('helvetica', 'bold')
+    doc.setFont('Roboto', 'bold')
 
-    // Draw icon as a filled circle badge with white symbol inside
-    const icx = ML + 6   // circle centre x
-    const icy = this.y + 9  // circle centre y
-    const ir  = 6           // circle radius
-
+    // Use Roboto Unicode glyphs for icons — renders correctly as real PDF text
+    doc.setFontSize(16)
     if (icon === 'check') {
-      // Blue filled circle
-      fc(doc, C.blue)
-      dc(doc, C.blue)
-      doc.circle(icx, icy, ir, 'F')
-      // White checkmark lines
-      dc(doc, C.white)
-      doc.setLineWidth(1.5)
-      doc.line(icx - 3.5, icy,      icx - 1, icy + 3)    // short left leg
-      doc.line(icx - 1,   icy + 3,  icx + 3.5, icy - 3)  // long right leg
+      tc(doc, C.blue)
+      doc.text('✓', ML + 1, this.y + 12)
     } else if (icon === 'x') {
-      // Red filled circle
-      fc(doc, C.red)
-      dc(doc, C.red)
-      doc.circle(icx, icy, ir, 'F')
-      // White X lines
-      dc(doc, C.white)
-      doc.setLineWidth(1.5)
-      doc.line(icx - 3, icy - 3, icx + 3, icy + 3)
-      doc.line(icx + 3, icy - 3, icx - 3, icy + 3)
+      tc(doc, C.red)
+      doc.text('✕', ML + 1, this.y + 12)
     } else {
-      // Orange/amber filled circle with white !
-      fc(doc, [245, 158, 11] as [number, number, number])
-      dc(doc, [245, 158, 11] as [number, number, number])
-      doc.circle(icx, icy, ir, 'F')
-      tc(doc, C.white)
-      doc.setFont('helvetica', 'bold')
-      doc.setFontSize(13)
-      doc.text('!', icx - 1.2, icy + 4)
+      tc(doc, [245, 158, 11] as [number, number, number])
+      doc.text('!', ML + 3, this.y + 12)
     }
 
     tc(doc, C.navy)
-    doc.setFont('helvetica', 'bold')
+    doc.setFont('Roboto', 'bold')
     doc.setFontSize(14)
-    doc.text(title, ML + 16, this.y + 10)
+    doc.text(title, ML + 12, this.y + 10)
 
     this.y += 18
   }
@@ -321,7 +320,7 @@ class Builder {
     for (const item of items) {
       this.need(7)
       tc(doc, C.darkText)
-      doc.setFont('helvetica', 'normal')
+      doc.setFont('Roboto', 'normal')
       doc.setFontSize(10)
       doc.text('—', ML + 3, this.y + 1)
       const lines = doc.splitTextToSize(item, CW - 14)
@@ -360,11 +359,11 @@ class Builder {
       const rowH = (valueLines.length as number) * 6 + 4
       this.need(rowH)
       tc(doc, C.gray)
-      doc.setFont('helvetica', 'normal')
+      doc.setFont('Roboto', 'normal')
       doc.setFontSize(10)
       doc.text(label, ML, this.y)
       tc(doc, C.darkText)
-      doc.setFont('helvetica', 'bold')
+      doc.setFont('Roboto', 'bold')
       doc.text(valueLines, valueX, this.y)
       this.y += rowH
     }
@@ -381,7 +380,7 @@ class Builder {
     if (q.consultationRequired !== null) {
       this.need(10)
       tc(doc, C.darkText)
-      doc.setFont('helvetica', 'bold')
+      doc.setFont('Roboto', 'bold')
       doc.setFontSize(10)
       doc.text('Consultation Required:', ML, this.y)
       tc(doc, C.navyLight)
@@ -392,7 +391,7 @@ class Builder {
     if (q.suggestedConsultTime) {
       this.need(10)
       tc(doc, C.darkText)
-      this.doc.setFont('helvetica', 'bold')
+      this.doc.setFont('Roboto', 'bold')
       this.doc.setFontSize(10)
       doc.text('Suggested Consult Day & Time:', ML, this.y)
       tc(doc, C.navyLight)
@@ -412,7 +411,7 @@ class Builder {
     doc.roundedRect(ML, this.y, CW, 16, 3, 3, 'S')
 
     tc(doc, C.darkText)
-    doc.setFont('helvetica', 'bold')
+    doc.setFont('Roboto', 'bold')
     doc.setFontSize(9.5)
     doc.text(
       'Your Next Step:  Confirm consultation appointment with your agent',
@@ -429,7 +428,7 @@ class Builder {
     const doc = this.doc
 
     tc(doc, C.gray)
-    doc.setFont('helvetica', 'italic')
+    doc.setFont('Roboto', 'normal')
     doc.setFontSize(8)
     doc.text(
       'Simply reply to the email from your agent, or contact them via email/phone below.',
@@ -448,11 +447,11 @@ class Builder {
     for (const [label, value] of rows) {
       this.need(9)
       tc(doc, C.gray)
-      doc.setFont('helvetica', 'normal')
+      doc.setFont('Roboto', 'normal')
       doc.setFontSize(10)
       doc.text(label, ML + 10, this.y)
       tc(doc, C.darkText)
-      doc.setFont('helvetica', 'bold')
+      doc.setFont('Roboto', 'bold')
       doc.text(value, ML + 60, this.y)
       this.y += 8
     }
@@ -471,7 +470,7 @@ class Builder {
     doc.roundedRect(bx, this.y, bw, 12, 2, 2, 'F')
 
     tc(doc, C.white)
-    doc.setFont('helvetica', 'bold')
+    doc.setFont('Roboto', 'bold')
     doc.setFontSize(9)
     doc.text('Visit Clinic Page', bx + bw / 2, this.y + 8, { align: 'center' })
 
@@ -504,8 +503,9 @@ class Builder {
 }
 
 // ── Public entry point ─────────────────────────────────────────────────────
-export function generateQuotePDF(quote: QuoteData, agent: AgentProfile): void {
-  const b = new Builder(quote)
+export async function generateQuotePDF(quote: QuoteData, agent: AgentProfile): Promise<void> {
+  const doc = await buildDoc()
+  const b = new Builder(quote, doc)
 
   // ── Page 1 content ────────────────────────────────────────────────────
   b.addTreatmentHeading()

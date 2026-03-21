@@ -58,11 +58,11 @@ export default function App() {
   }
 
   // ── PDF generation ─────────────────────────────────────────────────────
-  function handleConfirmAndDownload(data: QuoteData) {
+  async function handleConfirmAndDownload(data: QuoteData) {
     if (!profile) return
     setIsGenerating(true)
     try {
-      generateQuotePDF(data, profile)
+      await generateQuotePDF(data, profile)
       setQuoteData(data)
       setStep('done')
     } catch (err) {
