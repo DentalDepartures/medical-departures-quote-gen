@@ -42,20 +42,24 @@ function formatPrice(amount: number | null, currency: string): string {
   }
 }
 
-// ── Logo ───────────────────────────────────────────────────────────────────
+// ── Logo — matches Medical Departures style ────────────────────────────────
 function drawLogo(doc: jsPDF, x: number, y: number) {
-  // Red cross
+  // Red cross — large, bold, square
+  const cw = 14  // cross total width
+  const ch = 14  // cross total height
+  const bar = 5  // bar thickness
   fc(doc, C.red)
-  doc.rect(x + 5, y, 4, 14, 'F')      // vertical bar
-  doc.rect(x + 1, y + 4, 12, 5, 'F') // horizontal bar
+  doc.rect(x + (cw - bar) / 2, y, bar, ch, 'F')      // vertical bar
+  doc.rect(x, y + (ch - bar) / 2, cw, bar, 'F')      // horizontal bar
 
-  // Brand text
+  // Brand text — tight to the right of the cross
+  const tx = x + cw + 3
   tc(doc, C.navy)
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(8.5)
-  doc.text('DENTAL', x + 16, y + 6)
-  doc.setFontSize(6.5)
-  doc.text('DEPARTURES', x + 16, y + 12)
+  doc.setFontSize(11)
+  doc.text('DENTAL', tx, y + 7)
+  doc.setFontSize(8)
+  doc.text('DEPARTURES', tx, y + 13)
 }
 
 // ── Page header ────────────────────────────────────────────────────────────
@@ -187,18 +191,18 @@ class Builder {
 
       // Dark navy price box
       fc(doc, C.navy)
-      doc.rect(bx, blockY - 2, bw, 25, 'F')
+      doc.rect(bx, blockY - 2, bw, 27, 'F')
 
-      // "Price:" label
+      // "Price:" small label
       tc(doc, C.white)
       doc.setFont('helvetica', 'normal')
-      doc.setFontSize(9)
-      doc.text('Price:', bx + 5, blockY + 6)
+      doc.setFontSize(8.5)
+      doc.text('Price:', bx + 5, blockY + 5)
 
-      // Price amount — large
+      // Price amount — large bold on second line
       doc.setFont('helvetica', 'bold')
-      doc.setFontSize(13)
-      doc.text(formatPrice(this.quote.price, this.quote.currency), bx + 5, blockY + 15)
+      doc.setFontSize(14)
+      doc.text(formatPrice(this.quote.price, this.quote.currency), bx + 5, blockY + 16)
 
       // Cream savings area
       fc(doc, C.cream)
@@ -236,9 +240,9 @@ class Builder {
     icon: 'check' | 'x' | 'bang',
     minFollowHeight = 20
   ) {
-    this.need(16 + minFollowHeight)
+    this.need(22 + minFollowHeight)
     const doc = this.doc
-    const r = 5
+    const r = 7   // larger icon radius to match reference PDF
     const cx = ML + r
     const cy = this.y + r + 1
 
@@ -248,16 +252,16 @@ class Builder {
 
     tc(doc, C.white)
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(10)
+    doc.setFontSize(12)
     const sym = icon === 'check' ? '✓' : icon === 'x' ? '✕' : '!'
-    doc.text(sym, cx - (icon === 'bang' ? 0.7 : 1.8), cy + 1.8)
+    doc.text(sym, cx - (icon === 'bang' ? 1 : 2.5), cy + 2.2)
 
     tc(doc, C.navy)
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(13)
-    doc.text(title, ML + r * 2 + 4, this.y + r + 2.5)
+    doc.setFontSize(14)
+    doc.text(title, ML + r * 2 + 4, this.y + r + 3)
 
-    this.y += r * 2 + 7
+    this.y += r * 2 + 8
   }
 
   // ── Bullet list ──────────────────────────────────────────────────────────
