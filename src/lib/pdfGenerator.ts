@@ -393,9 +393,9 @@ class Builder {
       tc(doc, C.darkText)
       this.doc.setFont('Roboto', 'bold')
       this.doc.setFontSize(10)
-      doc.text('Suggested Consult Day & Time:', ML, this.y)
+      doc.text('Consult Day & Time:', ML, this.y)
       tc(doc, C.navyLight)
-      doc.text(q.suggestedConsultTime, ML + 77, this.y)
+      doc.text(q.suggestedConsultTime, ML + 56, this.y)
       this.y += 8
     }
   }
@@ -443,7 +443,6 @@ class Builder {
       ['Email :', agent.email],
       ['Phone :', agent.phone],
     ]
-    // Value x at ML+60 clears the longest label "Your Agent's Name :" at 10pt
     for (const [label, value] of rows) {
       this.need(9)
       tc(doc, C.gray)
@@ -452,7 +451,7 @@ class Builder {
       doc.text(label, ML + 10, this.y)
       tc(doc, C.darkText)
       doc.setFont('Roboto', 'bold')
-      doc.text(value, ML + 60, this.y)
+      doc.text(value, ML + 56, this.y)
       this.y += 8
     }
   }
