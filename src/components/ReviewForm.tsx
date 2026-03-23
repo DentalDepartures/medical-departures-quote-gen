@@ -6,6 +6,7 @@ interface Props {
   onConfirm: (data: QuoteData) => void
   onBack: () => void
   isGenerating: boolean
+  quote: QuoteData
 }
 
 const CURRENCIES = ['THB', 'USD', 'MXN', 'EUR', 'BRL', 'GBP', 'AUD', 'CAD', 'SGD', 'HKD']
@@ -36,7 +37,7 @@ function Field({
   )
 }
 
-export default function ReviewForm({ initial, onConfirm, onBack, isGenerating }: Props) {
+export default function ReviewForm({ initial, onConfirm, onBack, isGenerating, quote }: Props) {
   const [q, setQ] = useState<QuoteData>(initial)
 
   // Helpers for array fields edited as multi-line text
@@ -60,20 +61,35 @@ export default function ReviewForm({ initial, onConfirm, onBack, isGenerating }:
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-10">
-      <div className="mb-6 flex items-center gap-3">
-        <button onClick={onBack} className="text-gray-400 hover:text-gray-600 transition-colors">
-          ← Back
+    <div className="min-h-screen bg-gray-50">
+      {/* Sticky dark toolbar */}
+      <div
+        className="sticky top-0 z-50 flex items-center justify-between px-6 py-3"
+        style={{ background: '#1a1a1a', fontFamily: 'inherit' }}
+      >
+        <button
+          onClick={onBack}
+          className="text-sm font-semibold rounded-md px-4 py-2 transition-colors"
+          style={{ background: 'transparent', border: '1.5px solid rgba(255,255,255,0.3)', color: 'white', cursor: 'pointer', fontFamily: 'inherit' }}
+        >
+          ← Edit Data
         </button>
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Review Quote</h2>
-          <p className="text-sm text-gray-500 mt-0.5">
-            Verify the extracted data. Edit anything that looks wrong, then download the PDF.
-          </p>
+        <div className="text-sm font-bold text-white hidden sm:block">
+          {quote.patientName || 'Patient'} — {quote.treatmentName || 'Treatment'}
         </div>
+        <button
+          form="review-form"
+          type="submit"
+          disabled={isGenerating}
+          className="text-sm font-bold rounded-md px-5 py-2"
+          style={{ background: '#00467f', border: 'none', color: 'white', cursor: isGenerating ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: isGenerating ? 0.7 : 1 }}
+        >
+          {isGenerating ? 'Generating…' : '⬇ Download PDF'}
+        </button>
       </div>
 
-      <form onSubmit={handleSubmit}>
+      <div className="max-w-3xl mx-auto px-4 py-8">
+      <form id="review-form" onSubmit={handleSubmit}>
         <div className="card space-y-0">
           {/* Patient */}
           <Section title="Patient">
@@ -288,38 +304,8 @@ export default function ReviewForm({ initial, onConfirm, onBack, isGenerating }:
           </Section>
         </div>
 
-        {/* Actions */}
-        <div className="mt-6 flex flex-col sm:flex-row gap-3">
-          <button type="button" onClick={onBack} className="btn-secondary">
-            ← Back
-          </button>
-          <button type="submit" className="btn-primary flex-1" disabled={isGenerating}>
-            {isGenerating ? (
-              <span className="flex items-center justify-center gap-2">
-                <svg
-                  className="animate-spin h-4 w-4"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                </svg>
-                Generating PDF…
-              </span>
-            ) : (
-              '⬇ Download PDF'
-            )}
-          </button>
-        </div>
       </form>
+      </div>
     </div>
   )
 }
