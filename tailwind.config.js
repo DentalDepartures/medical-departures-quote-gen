@@ -5,14 +5,16 @@ export default {
     extend: {
       colors: {
         navy: {
-          DEFAULT: '#1E3A5F',
-          light: '#2B5280',
-          dark: '#152B47',
+          DEFAULT: '#00467f',
+          light: '#005a9e',
+          dark: '#003360',
         },
-        cream: '#F9F5E8',
+        red: '#e51b24',
+        silver: '#9eb0cf',
+        cream: '#ebf1f9',
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['Montserrat', 'system-ui', 'sans-serif'],
       },
     },
   },
