@@ -161,13 +161,16 @@ class Builder {
 
   // ── Treatment heading ────────────────────────────────────────────────────
   addTreatmentHeading() {
-    this.need(16)
     const name = this.quote.treatmentName || 'Medical Treatment'
-    tc(this.doc, C.navy)
-    this.doc.setFont('Montserrat', 'bold')
-    this.doc.setFontSize(17)
-    this.doc.text(`Treatment:  ${name}`, ML, this.y + 8)
-    this.y += 18
+    const doc = this.doc
+    doc.setFont('Montserrat', 'bold')
+    doc.setFontSize(17)
+    const lines = doc.splitTextToSize(`Treatment:  ${name}`, CW) as string[]
+    const blockH = lines.length * 8 + 10
+    this.need(blockH)
+    tc(doc, C.navy)
+    doc.text(lines, ML, this.y + 8)
+    this.y += blockH
   }
 
   // ── Clinic + price block ─────────────────────────────────────────────────
