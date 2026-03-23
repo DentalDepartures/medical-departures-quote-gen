@@ -47,8 +47,7 @@ export default function ReviewForm({ initial, onConfirm, onBack, isGenerating, q
   function textToArray(text: string) {
     return text
       .split('\n')
-      .map((s) => s.trim())
-      .filter(Boolean)
+      .filter((s) => s.trim().length > 0)
   }
 
   function set<K extends keyof QuoteData>(key: K, value: QuoteData[K]) {
