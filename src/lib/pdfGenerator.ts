@@ -19,13 +19,14 @@ async function loadImageDataUrl(url: string): Promise<string> {
   })
 }
 
-async function buildDoc(): Promise<{ doc: jsPDF; logoDataUrl: string; xMarkDataUrl: string }> {
-  const [regular, bold, semibold, logoDataUrl, xMarkDataUrl] = await Promise.all([
+async function buildDoc(): Promise<{ doc: jsPDF; logoDataUrl: string; xMarkDataUrl: string; checkMarkDataUrl: string }> {
+  const [regular, bold, semibold, logoDataUrl, xMarkDataUrl, checkMarkDataUrl] = await Promise.all([
     loadFontBase64('/fonts/Montserrat-Regular.ttf'),
     loadFontBase64('/fonts/Montserrat-Bold.ttf'),
     loadFontBase64('/fonts/Montserrat-SemiBold.ttf'),
     loadImageDataUrl('/logo.png'),
     loadImageDataUrl('/x-mark.png'),
+    loadImageDataUrl('/check-mark.png'),
   ])
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
   doc.addFileToVFS('Montserrat-Regular.ttf', regular)
@@ -34,7 +35,7 @@ async function buildDoc(): Promise<{ doc: jsPDF; logoDataUrl: string; xMarkDataU
   doc.addFont('Montserrat-Bold.ttf', 'Montserrat', 'bold')
   doc.addFileToVFS('Montserrat-SemiBold.ttf', semibold)
   doc.addFont('Montserrat-SemiBold.ttf', 'Montserrat', 'semibold')
-  return { doc, logoDataUrl, xMarkDataUrl }
+  return { doc, logoDataUrl, xMarkDataUrl, checkMarkDataUrl }
 }
 
 // ── Palette — Medical Departures brand ────────────────────────────────────
@@ -137,12 +138,14 @@ class Builder {
   quote: QuoteData
   logoDataUrl: string
   xMarkDataUrl: string
+  checkMarkDataUrl: string
 
-  constructor(quote: QuoteData, doc: jsPDF, logoDataUrl: string, xMarkDataUrl: string) {
+  constructor(quote: QuoteData, doc: jsPDF, logoDataUrl: string, xMarkDataUrl: string, checkMarkDataUrl: string) {
     this.doc = doc
     this.quote = quote
     this.logoDataUrl = logoDataUrl
     this.xMarkDataUrl = xMarkDataUrl
+    this.checkMarkDataUrl = checkMarkDataUrl
     this.y = HEADER_BOTTOM + 8
     drawHeader(this.doc, quote, logoDataUrl)
     drawFooter(this.doc)
@@ -264,8 +267,7 @@ class Builder {
     // Icons: ✓ and ! as Unicode text; ✕ as the real x-mark PNG
     doc.setFontSize(16)
     if (icon === 'check') {
-      tc(doc, C.navy)
-      doc.text('✓', ML + 1, this.y + 12)
+      doc.addImage(this.checkMarkDataUrl, 'PNG', ML, this.y + 1, 11, 11)
     } else if (icon === 'x') {
       // Use the x-mark PNG — render at 11×11 mm
       doc.addImage(this.xMarkDataUrl, 'PNG', ML, this.y + 1, 11, 11)
@@ -470,8 +472,8 @@ class Builder {
 
 // ── Public entry point ─────────────────────────────────────────────────────
 export async function generateQuotePDF(quote: QuoteData, agent: AgentProfile): Promise<void> {
-  const { doc, logoDataUrl, xMarkDataUrl } = await buildDoc()
-  const b = new Builder(quote, doc, logoDataUrl, xMarkDataUrl)
+  const { doc, logoDataUrl, xMarkDataUrl, checkMarkDataUrl } = await buildDoc()
+  const b = new Builder(quote, doc, logoDataUrl, xMarkDataUrl, checkMarkDataUrl)
 
   b.addTreatmentHeading()
   b.addClinicPriceBlock()
