@@ -320,15 +320,23 @@ class Builder {
     const visible = rows.filter(([, v]) => v)
     if (!visible.length) return
 
-    this.addDivider()
     const doc = this.doc
-
     const valueX = ML + 56
     const maxValueW = PW - MR - valueX
-    for (const [label, value] of visible) {
-      const valueLines = doc.splitTextToSize(value!, maxValueW)
-      const rowH = (valueLines.length as number) * 6 + 4
-      this.need(rowH)
+
+    // Calculate total height for all rows so they stay together on one page
+    let totalH = 6 // divider
+    const rowHeights = visible.map(([, value]) => {
+      const lines = doc.splitTextToSize(value!, maxValueW) as string[]
+      return lines.length * 6 + 4
+    })
+    rowHeights.forEach((h) => (totalH += h))
+    this.need(totalH)
+
+    this.addDivider()
+
+    visible.forEach(([label, value], i) => {
+      const valueLines = doc.splitTextToSize(value!, maxValueW) as string[]
       tc(doc, C.gray)
       doc.setFont('Montserrat', 'normal')
       doc.setFontSize(10)
@@ -336,8 +344,8 @@ class Builder {
       tc(doc, C.darkText)
       doc.setFont('Montserrat', 'bold')
       doc.text(valueLines, valueX, this.y)
-      this.y += rowH
-    }
+      this.y += rowHeights[i]
+    })
   }
 
   // ── Consultation ─────────────────────────────────────────────────────────
