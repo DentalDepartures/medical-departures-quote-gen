@@ -105,8 +105,8 @@ export async function extractQuoteData(rawText: string): Promise<QuoteData> {
     // Otherwise proxy not available — fall through to direct call
   }
 
-  // 2. Fall back to direct Anthropic call using localStorage API key
-  const apiKey = getApiKey()
+  // 2. Fall back to direct Anthropic call — env var baked at build time, then localStorage
+  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY || getApiKey()
   if (!apiKey) {
     throw new Error('NO_API_KEY')
   }
