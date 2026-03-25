@@ -52,6 +52,7 @@ async function callAnthropic(rawText: string, apiKey: string): Promise<QuoteData
     headers: {
       'x-api-key': apiKey,
       'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-allow-browser': 'true',
       'content-type': 'application/json',
     },
     body: JSON.stringify({
