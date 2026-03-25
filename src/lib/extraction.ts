@@ -55,7 +55,7 @@ async function callAnthropic(rawText: string, apiKey: string): Promise<QuoteData
       'content-type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'claude-opus-4-5',
+      model: 'claude-sonnet-4-6',
       max_tokens: 2048,
       system: SYSTEM_PROMPT,
       messages: [
