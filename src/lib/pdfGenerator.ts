@@ -62,19 +62,6 @@ function fc(doc: jsPDF, c: RGB) { doc.setFillColor(...c) }
 function tc(doc: jsPDF, c: RGB) { doc.setTextColor(...c) }
 function dc(doc: jsPDF, c: RGB) { doc.setDrawColor(...c) }
 
-function formatPrice(amount: number | null, currency: string): string {
-  if (amount === null) return ''
-  try {
-    return (
-      new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(amount) +
-      ' ' +
-      currency
-    )
-  } catch {
-    return amount.toLocaleString() + ' ' + currency
-  }
-}
-
 // ── Page header ─────────────────────────────────────────────────────────────
 function drawHeader(doc: jsPDF, quote: QuoteData, logoDataUrl: string) {
   // Logo: 50×17mm at x=14, y=7
