@@ -11,21 +11,20 @@ import ApiKeySetup from './components/ApiKeySetup'
 export default function App() {
   const [step, setStep] = useState<'paste' | 'review' | 'done'>('paste')
   const [profile, setProfile] = useState<AgentProfile | null>(null)
-  const [quoteData, setQuoteData] = useState<QuoteData | null>(null)
+  const [quotes, setQuotes] = useState<QuoteData[] | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [extractError, setExtractError] = useState<string | null>(null)
   const [showApiKeyModal, setShowApiKeyModal] = useState(false)
   const [pendingRawText, setPendingRawText] = useState<string | null>(null)
 
-  // ── Extraction ─────────────────────────────────────────────────────────
   async function handleGenerate(rawText: string, p: AgentProfile) {
     setProfile(p)
     setIsLoading(true)
     setExtractError(null)
     try {
       const data = await extractQuoteData(rawText)
-      setQuoteData(data)
+      setQuotes(data)
       setStep('review')
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err)
@@ -48,13 +47,14 @@ export default function App() {
     }
   }
 
-  // ── PDF generation ─────────────────────────────────────────────────────
-  async function handleConfirmAndDownload(data: QuoteData) {
+  async function handleConfirmAndDownload(data: QuoteData[]) {
     if (!profile) return
     setIsGenerating(true)
     try {
-      await generateQuotePDF(data, profile)
-      setQuoteData(data)
+      for (const quote of data) {
+        await generateQuotePDF(quote, profile)
+      }
+      setQuotes(data)
       setStep('done')
     } catch (err) {
       alert('PDF generation failed: ' + String(err))
@@ -63,49 +63,39 @@ export default function App() {
     }
   }
 
-  // ── Reset ──────────────────────────────────────────────────────────────
   function handleNewQuote() {
-    setQuoteData(null)
+    setQuotes(null)
     setExtractError(null)
     setStep('paste')
   }
 
-  // ── Render ─────────────────────────────────────────────────────────────
   if (step === 'paste') {
     return (
       <>
-        <PasteInput
-          onGenerate={handleGenerate}
-          isLoading={isLoading}
-          error={extractError}
-        />
+        <PasteInput onGenerate={handleGenerate} isLoading={isLoading} error={extractError} />
         {showApiKeyModal && (
           <ApiKeySetup
             onSave={handleApiKeySaved}
-            onCancel={() => {
-              setShowApiKeyModal(false)
-              setPendingRawText(null)
-            }}
+            onCancel={() => { setShowApiKeyModal(false); setPendingRawText(null) }}
           />
         )}
       </>
     )
   }
 
-  if (step === 'review' && quoteData) {
+  if (step === 'review' && quotes) {
     return (
       <ReviewForm
-        initial={quoteData}
+        initial={quotes}
         onConfirm={handleConfirmAndDownload}
         onBack={() => setStep('paste')}
         isGenerating={isGenerating}
-        quote={quoteData}
       />
     )
   }
 
-  if (step === 'done' && quoteData) {
-    return <QuoteDone quote={quoteData} onNewQuote={handleNewQuote} />
+  if (step === 'done' && quotes) {
+    return <QuoteDone quotes={quotes} onNewQuote={handleNewQuote} />
   }
 
   return null

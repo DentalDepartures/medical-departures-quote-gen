@@ -1,11 +1,12 @@
 import type { QuoteData } from '../types'
 
 interface Props {
-  quote: QuoteData
+  quotes: QuoteData[]
   onNewQuote: () => void
 }
 
-export default function QuoteDone({ quote, onNewQuote }: Props) {
+export default function QuoteDone({ quotes, onNewQuote }: Props) {
+  const count = quotes.length
   return (
     <div className="max-w-2xl mx-auto px-4 py-16 text-center">
       <img src="/logo.png" alt="Medical Departures" style={{ height: 48, objectFit: 'contain', marginBottom: 24 }} className="mx-auto" />
@@ -16,26 +17,33 @@ export default function QuoteDone({ quote, onNewQuote }: Props) {
         </svg>
       </div>
 
-      <h2 className="text-2xl font-bold mb-2" style={{ color: '#00467f' }}>Quote Downloaded!</h2>
+      <h2 className="text-2xl font-bold mb-2" style={{ color: '#00467f' }}>
+        {count > 1 ? `${count} Quotes Downloaded!` : 'Quote Downloaded!'}
+      </h2>
+
       <p className="text-gray-500 mb-1">
-        <strong>{quote.patientName || 'Patient'}</strong> —{' '}
-        {quote.treatmentName || 'Treatment'}
+        <strong>{quotes[0]?.patientName || 'Patient'}</strong>
       </p>
-      {quote.clinicName && (
+
+      {count > 1 ? (
+        <div className="flex flex-col gap-1 mb-8">
+          {quotes.map((q, i) => (
+            <p key={i} className="text-sm text-gray-400">{q.treatmentName || `Procedure ${i + 1}`}</p>
+          ))}
+        </div>
+      ) : (
         <p className="text-sm text-gray-400 mb-8">
-          {quote.clinicName}
-          {quote.clinicLocation ? ` · ${quote.clinicLocation}` : ''}
+          {quotes[0]?.treatmentName || 'Treatment'}
+          {quotes[0]?.clinicName ? ` · ${quotes[0].clinicName}` : ''}
         </p>
       )}
 
       <div className="flex flex-col sm:flex-row gap-3 justify-center">
-        <button onClick={onNewQuote} className="btn-primary">
-          + Generate Another Quote
-        </button>
+        <button onClick={onNewQuote} className="btn-primary">+ Generate Another Quote</button>
       </div>
 
       <p className="text-xs text-gray-400 mt-8">
-        The PDF has been saved to your downloads folder.
+        {count > 1 ? `${count} PDF files have been saved to your downloads folder.` : 'The PDF has been saved to your downloads folder.'}
       </p>
     </div>
   )
