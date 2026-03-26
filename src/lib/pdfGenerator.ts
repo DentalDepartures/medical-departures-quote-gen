@@ -19,14 +19,12 @@ async function loadImageDataUrl(url: string): Promise<string> {
   })
 }
 
-async function buildDoc(): Promise<{ doc: jsPDF; logoDataUrl: string; xMarkDataUrl: string; checkMarkDataUrl: string }> {
-  const [regular, bold, semibold, logoDataUrl, xMarkDataUrl, checkMarkDataUrl] = await Promise.all([
+async function buildDoc(): Promise<{ doc: jsPDF; logoDataUrl: string }> {
+  const [regular, bold, semibold, logoDataUrl] = await Promise.all([
     loadFontBase64('/fonts/Montserrat-Regular.ttf'),
     loadFontBase64('/fonts/Montserrat-Bold.ttf'),
     loadFontBase64('/fonts/Montserrat-SemiBold.ttf'),
     loadImageDataUrl('/logo.png'),
-    loadImageDataUrl('/x-mark.png'),
-    loadImageDataUrl('/check-mark.png'),
   ])
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
   doc.addFileToVFS('Montserrat-Regular.ttf', regular)
@@ -35,30 +33,29 @@ async function buildDoc(): Promise<{ doc: jsPDF; logoDataUrl: string; xMarkDataU
   doc.addFont('Montserrat-Bold.ttf', 'Montserrat', 'bold')
   doc.addFileToVFS('Montserrat-SemiBold.ttf', semibold)
   doc.addFont('Montserrat-SemiBold.ttf', 'Montserrat', 'semibold')
-  return { doc, logoDataUrl, xMarkDataUrl, checkMarkDataUrl }
+  return { doc, logoDataUrl }
 }
 
-// ── Palette — Medical Departures brand ────────────────────────────────────
+// ── Palette ────────────────────────────────────────────────────────────────
 type RGB = [number, number, number]
 const C = {
-  navy:     [0,   70,  127] as RGB,  // #00467f — primary
-  red:      [229, 27,  36]  as RGB,  // #e51b24 — accent / exclusions
-  silver:   [158, 176, 207] as RGB,  // #9eb0cf — secondary accent
-  cream:    [235, 241, 249] as RGB,  // light silver tint for savings area
+  navy:     [0,   70,  127] as RGB,
+  red:      [229, 27,  36]  as RGB,
   white:    [255, 255, 255] as RGB,
-  darkText: [17,  24,  39]  as RGB,
-  gray:     [107, 114, 128] as RGB,
-  lineGray: [229, 231, 235] as RGB,
+  darkText: [30,  30,  30]  as RGB,
+  gray:     [120, 120, 120] as RGB,
+  lightBg:  [245, 246, 248] as RGB,
+  lineGray: [220, 220, 220] as RGB,
 }
 
 // ── Layout constants ───────────────────────────────────────────────────────
-const ML = 15
-const MR = 15
+const ML = 14
+const MR = 14
 const PW = 210
 const CW = PW - ML - MR
-const HEADER_BOTTOM = 46
-const FOOTER_Y = 280
-const MAX_Y = 270
+const HEADER_BOTTOM = 36
+const FOOTER_Y = 282
+const MAX_Y = 265
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 function fc(doc: jsPDF, c: RGB) { doc.setFillColor(...c) }
@@ -78,44 +75,44 @@ function formatPrice(amount: number | null, currency: string): string {
   }
 }
 
-// ── Page header ────────────────────────────────────────────────────────────
+// ── Page header ─────────────────────────────────────────────────────────────
 function drawHeader(doc: jsPDF, quote: QuoteData, logoDataUrl: string) {
-  const y = 13
+  // Logo: 50×17mm at x=14, y=7
+  const logoW = 50
+  const logoH = 17
+  doc.addImage(logoDataUrl, 'PNG', ML, 7, logoW, logoH)
 
-  // "Quote for:" label
-  tc(doc, C.gray)
-  doc.setFont('Montserrat', 'normal')
-  doc.setFontSize(8)
-  doc.text('Quote for:', ML, y + 5)
-
-  // Patient name
-  tc(doc, C.darkText)
+  // Right side: "TREATMENT QUOTE" bold navy 13pt right-aligned
+  tc(doc, C.navy)
   doc.setFont('Montserrat', 'bold')
   doc.setFontSize(13)
-  doc.text(quote.patientName || 'Patient Name', ML, y + 12)
+  doc.text('TREATMENT QUOTE', PW - MR, 13, { align: 'right' })
 
-  // Date
+  // Date: gray 8.5pt right-aligned
   tc(doc, C.gray)
   doc.setFont('Montserrat', 'normal')
-  doc.setFontSize(8)
+  doc.setFontSize(8.5)
   const dateStr = quote.quoteDate
     ? quote.quoteDate
     : new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })
-  doc.text(dateStr, ML, y + 19)
+  doc.text(`Date: ${dateStr}`, PW - MR, 20, { align: 'right' })
 
-  // Logo — real Medical Departures PNG, top-right
-  // Logo is ~3:1 aspect ratio; render at 58mm wide × 19mm tall
-  const logoW = 58
-  const logoH = 19
-  doc.addImage(logoDataUrl, 'PNG', PW - MR - logoW, y, logoW, logoH)
+  // "Quote for:" gray 8.5pt right-aligned
+  doc.text('Quote for:', PW - MR, 26, { align: 'right' })
 
-  // Divider
+  // Patient name bold dark 9.5pt right-aligned
+  tc(doc, C.darkText)
+  doc.setFont('Montserrat', 'bold')
+  doc.setFontSize(9.5)
+  doc.text(quote.patientName || 'Patient Name', PW - MR, 32, { align: 'right' })
+
+  // Horizontal divider at y=36
   dc(doc, C.lineGray)
   doc.setLineWidth(0.3)
   doc.line(ML, HEADER_BOTTOM, PW - MR, HEADER_BOTTOM)
 }
 
-// ── Footer ─────────────────────────────────────────────────────────────────
+// ── Footer ──────────────────────────────────────────────────────────────────
 function drawFooter(doc: jsPDF) {
   const disclaimer =
     'This quotation is based on the information currently available and is for estimation purposes only. Final treatment plan and pricing may\n' +
@@ -123,35 +120,47 @@ function drawFooter(doc: jsPDF) {
 
   dc(doc, C.lineGray)
   doc.setLineWidth(0.2)
-  doc.line(ML, FOOTER_Y - 3, PW - MR, FOOTER_Y - 3)
+  doc.line(ML, FOOTER_Y, PW - MR, FOOTER_Y)
 
   tc(doc, C.gray)
   doc.setFont('Montserrat', 'normal')
   doc.setFontSize(6.5)
-  doc.text(disclaimer, ML, FOOTER_Y + 2)
+  doc.text(disclaimer, ML, 287)
 }
 
-// ── PDF Builder ────────────────────────────────────────────────────────────
+// ── Draw checkmark manually ─────────────────────────────────────────────────
+function drawCheckmark(doc: jsPDF, x: number, y: number) {
+  dc(doc, C.navy)
+  doc.setLineWidth(0.6)
+  doc.line(x, y + 1.5, x + 1.5, y + 3)
+  doc.line(x + 1.5, y + 3, x + 4.5, y + 0)
+}
+
+// ── Draw X manually ─────────────────────────────────────────────────────────
+function drawX(doc: jsPDF, x: number, y: number) {
+  dc(doc, C.red)
+  doc.setLineWidth(0.6)
+  doc.line(x, y, x + 3.5, y + 3.5)
+  doc.line(x + 3.5, y, x, y + 3.5)
+}
+
+// ── PDF Builder ─────────────────────────────────────────────────────────────
 class Builder {
   doc: jsPDF
   y: number
   quote: QuoteData
   logoDataUrl: string
-  xMarkDataUrl: string
-  checkMarkDataUrl: string
 
-  constructor(quote: QuoteData, doc: jsPDF, logoDataUrl: string, xMarkDataUrl: string, checkMarkDataUrl: string) {
+  constructor(quote: QuoteData, doc: jsPDF, logoDataUrl: string) {
     this.doc = doc
     this.quote = quote
     this.logoDataUrl = logoDataUrl
-    this.xMarkDataUrl = xMarkDataUrl
-    this.checkMarkDataUrl = checkMarkDataUrl
     this.y = HEADER_BOTTOM + 8
     drawHeader(this.doc, quote, logoDataUrl)
     drawFooter(this.doc)
   }
 
-  private newPage() {
+  newPage() {
     this.doc.addPage()
     drawHeader(this.doc, this.quote, this.logoDataUrl)
     drawFooter(this.doc)
@@ -162,315 +171,290 @@ class Builder {
     if (this.y + h > MAX_Y) this.newPage()
   }
 
-  // ── Treatment heading ────────────────────────────────────────────────────
-  addTreatmentHeading() {
-    const name = this.quote.treatmentName || 'Medical Treatment'
+  // ── Info box (y=43, h=26) ──────────────────────────────────────────────────
+  addInfoBox() {
     const doc = this.doc
-    doc.setFont('Montserrat', 'bold')
-    doc.setFontSize(17)
-    const lines = doc.splitTextToSize(`Treatment:  ${name}`, CW) as string[]
-    const blockH = lines.length * 8 + 10
-    this.need(blockH)
-    tc(doc, C.navy)
-    doc.text(lines, ML, this.y + 8)
-    this.y += blockH
-  }
+    const boxY = 43
+    const boxH = 26
+    const colW = CW / 3
 
-  // ── Clinic + price block ─────────────────────────────────────────────────
-  addClinicPriceBlock() {
-    this.need(58)
-    const blockY = this.y + 4
-    const doc = this.doc
+    // Light gray rounded rect
+    fc(doc, C.lightBg)
+    dc(doc, C.lightBg)
+    doc.roundedRect(ML, boxY, CW, boxH, 3, 3, 'F')
 
-    // — Left: clinic name ———————————————————————————————
-    // Building icon
-    fc(doc, C.navy)
-    doc.rect(ML, blockY, 6, 5, 'F')
-    doc.rect(ML + 2, blockY + 5, 2, 3, 'F')
-    doc.rect(ML + 0.5, blockY - 1.5, 5, 2, 'F')
-
-    tc(doc, C.darkText)
-    doc.setFont('Montserrat', 'bold')
-    doc.setFontSize(11)
-    doc.text(this.quote.clinicName || '', ML + 9, blockY + 4.5)
-
-    // Location pin
-    fc(doc, C.red)
-    doc.circle(ML + 3, blockY + 14, 3, 'F')
-    fc(doc, C.white)
-    doc.circle(ML + 3, blockY + 13.5, 1.2, 'F')
-    fc(doc, C.red)
-    doc.triangle(ML + 1.5, blockY + 16.5, ML + 4.5, blockY + 16.5, ML + 3, blockY + 19.5, 'F')
-
-    tc(doc, C.gray)
-    doc.setFont('Montserrat', 'normal')
-    doc.setFontSize(10)
-    doc.text(this.quote.clinicLocation || '', ML + 9, blockY + 15)
-
-    // — Right: price box ————————————————————————————————
-    if (this.quote.price !== null) {
-      const bx = 115
-      const bw = PW - MR - bx
-
-      fc(doc, C.navy)
-      doc.rect(bx, blockY - 2, bw, 27, 'F')
-
-      tc(doc, C.white)
-      doc.setFont('Montserrat', 'normal')
-      doc.setFontSize(8.5)
-      doc.text('Price:', bx + 5, blockY + 5)
-
-      doc.setFont('Montserrat', 'bold')
-      doc.setFontSize(14)
-      doc.text(formatPrice(this.quote.price, this.quote.currency), bx + 5, blockY + 16)
-
-      // Savings area in light silver
-      fc(doc, C.cream)
-      doc.rect(bx, blockY + 23, bw, 20, 'F')
-
-      tc(doc, C.gray)
-      doc.setFont('Montserrat', 'normal')
-      doc.setFontSize(8.5)
-
-      let savY = blockY + 30
-      if (this.quote.reducedFrom !== null) {
-        doc.text('Reduced from:', bx + 4, savY)
-        tc(doc, C.darkText)
-        doc.setFont('Montserrat', 'bold')
-        doc.text(formatPrice(this.quote.reducedFrom, this.quote.currency), bx + 38, savY)
-        doc.setFont('Montserrat', 'normal')
-        tc(doc, C.gray)
-        savY += 7
-      }
-      if (this.quote.savings !== null) {
-        doc.text('Savings:', bx + 4, savY)
-        tc(doc, C.darkText)
-        doc.setFont('Montserrat', 'bold')
-        doc.text(formatPrice(this.quote.savings, this.quote.currency), bx + 25, savY)
-      }
-    }
-
-    this.y = blockY + 48
-  }
-
-  // ── Section heading with icon ────────────────────────────────────────────
-  addSectionHeading(
-    title: string,
-    icon: 'check' | 'x' | 'bang',
-    minFollowHeight = 20
-  ) {
-    this.need(20 + minFollowHeight)
-    const doc = this.doc
-
-    doc.setFont('Montserrat', 'bold')
-
-    // Icons: ✓ and ! as Unicode text; ✕ as the real x-mark PNG
-    doc.setFontSize(16)
-    if (icon === 'check') {
-      doc.addImage(this.checkMarkDataUrl, 'PNG', ML, this.y + 1, 11, 11)
-    } else if (icon === 'x') {
-      // Use the x-mark PNG — render at 11×11 mm
-      doc.addImage(this.xMarkDataUrl, 'PNG', ML, this.y + 1, 11, 11)
-    } else {
-      tc(doc, C.silver)
-      doc.text('!', ML + 3, this.y + 12)
-    }
-
-    tc(doc, C.navy)
-    doc.setFont('Montserrat', 'bold')
-    doc.setFontSize(14)
-    doc.text(title, ML + 12, this.y + 10)
-
-    this.y += 18
-  }
-
-  // ── Bullet list ──────────────────────────────────────────────────────────
-  addBulletList(items: string[]) {
-    const doc = this.doc
-    const lineH = 5.5
-    for (const item of items) {
-      this.need(7)
-      tc(doc, C.darkText)
-      doc.setFont('Montserrat', 'normal')
-      doc.setFontSize(10)
-      doc.text('—', ML + 3, this.y + 1)
-      const lines = doc.splitTextToSize(item, CW - 14)
-      doc.text(lines, ML + 10, this.y + 1)
-      this.y += (lines.length as number) * lineH + 1
-    }
-  }
-
-  // ── Horizontal divider ───────────────────────────────────────────────────
-  addDivider() {
-    this.need(6)
-    dc(this.doc, C.lineGray)
-    this.doc.setLineWidth(0.25)
-    this.doc.line(ML, this.y, PW - MR, this.y)
-    this.y += 6
-  }
-
-  // ── Surgeon + accreditation ──────────────────────────────────────────────
-  addSurgeonSection() {
-    const q = this.quote
-    const rows: [string, string | null][] = [
-      ['Lead Surgeon Name :', q.surgeonName],
-      ['Lead Surgeon Title :', q.surgeonTitle],
-      ['Clinic Accreditations:', q.accreditations],
+    const columns = [
+      { label: 'TREATMENT', value: this.quote.treatmentName || '—' },
+      { label: 'CLINIC',    value: this.quote.clinicName    || '—' },
+      { label: 'LOCATION',  value: this.quote.clinicLocation || '—' },
     ]
-    const visible = rows.filter(([, v]) => v)
-    if (!visible.length) return
 
-    const doc = this.doc
-    const valueX = ML + 56
-    const maxValueW = PW - MR - valueX
+    columns.forEach((col, i) => {
+      const colX = ML + i * colW
 
-    // Calculate total height for all rows so they stay together on one page
-    let totalH = 6 // divider
-    const rowHeights = visible.map(([, value]) => {
-      const lines = doc.splitTextToSize(value!, maxValueW) as string[]
-      return lines.length * 6 + 4
-    })
-    rowHeights.forEach((h) => (totalH += h))
-    this.need(totalH)
-
-    this.addDivider()
-
-    visible.forEach(([label, value], i) => {
-      const valueLines = doc.splitTextToSize(value!, maxValueW) as string[]
+      // Small uppercase gray bold label at +8
       tc(doc, C.gray)
-      doc.setFont('Montserrat', 'normal')
-      doc.setFontSize(10)
-      doc.text(label, ML, this.y)
+      doc.setFont('Montserrat', 'bold')
+      doc.setFontSize(7.5)
+      doc.text(col.label, colX + colW / 2, boxY + 8, { align: 'center' })
+
+      // Bold dark value at +15
       tc(doc, C.darkText)
       doc.setFont('Montserrat', 'bold')
-      doc.text(valueLines, valueX, this.y)
-      this.y += rowHeights[i]
+      doc.setFontSize(9.5)
+      const maxW = colW - 6
+      const lines = doc.splitTextToSize(col.value, maxW) as string[]
+      doc.text(lines[0] || col.value, colX + colW / 2, boxY + 15, { align: 'center' })
+
+      // Thin vertical separator between columns
+      if (i > 0) {
+        dc(doc, C.lineGray)
+        doc.setLineWidth(0.3)
+        doc.line(colX, boxY + 4, colX, boxY + boxH - 4)
+      }
     })
+
+    this.y = boxY + boxH + 4
   }
 
-  // ── Consultation ─────────────────────────────────────────────────────────
-  addConsultationSection() {
-    const q = this.quote
-    if (q.consultationRequired === null && !q.suggestedConsultTime) return
-
-    this.addDivider()
+  // ── Price banner (y=75, h=22) ──────────────────────────────────────────────
+  addPriceBanner() {
     const doc = this.doc
+    const bannerY = 75
+    const bannerH = 22
 
-    if (q.consultationRequired !== null) {
-      this.need(10)
-      tc(doc, C.darkText)
-      doc.setFont('Montserrat', 'bold')
-      doc.setFontSize(10)
-      doc.text('Consultation Required:', ML, this.y)
-      tc(doc, C.navy)
-      doc.text(q.consultationRequired ? 'Yes' : 'No', ML + 56, this.y)
-      this.y += 8
-    }
-
-    if (q.suggestedConsultTime) {
-      this.need(10)
-      tc(doc, C.darkText)
-      doc.setFont('Montserrat', 'bold')
-      doc.setFontSize(10)
-      doc.text('Consult Day & Time:', ML, this.y)
-      tc(doc, C.navy)
-      doc.text(q.suggestedConsultTime, ML + 56, this.y)
-      this.y += 8
-    }
-  }
-
-  // ── "Your Next Step" box ─────────────────────────────────────────────────
-  addNextStepBox() {
-    this.need(24)
-    this.y += 4
-    const doc = this.doc
-
+    // Navy full-width rounded rect
+    fc(doc, C.navy)
     dc(doc, C.navy)
-    doc.setLineWidth(0.5)
-    doc.roundedRect(ML, this.y, CW, 16, 3, 3, 'S')
+    doc.roundedRect(ML, bannerY, CW, bannerH, 3, 3, 'F')
 
-    tc(doc, C.darkText)
+    // "TREATMENT PRICE" white bold 8pt at y+8
+    tc(doc, C.white)
     doc.setFont('Montserrat', 'bold')
-    doc.setFontSize(9.5)
-    doc.text(
-      'Your Next Step:  Confirm consultation appointment with your agent',
-      PW / 2,
-      this.y + 10,
-      { align: 'center' }
-    )
-    this.y += 22
-  }
-
-  // ── Agent contact ────────────────────────────────────────────────────────
-  addAgentContact(agent: AgentProfile) {
-    this.need(35)
-    const doc = this.doc
-
-    tc(doc, C.gray)
-    doc.setFont('Montserrat', 'normal')
     doc.setFontSize(8)
-    doc.text(
-      'Simply reply to the email from your agent, or contact them via email/phone below.',
-      PW / 2,
-      this.y,
-      { align: 'center' }
-    )
-    this.y += 9
+    doc.text('TREATMENT PRICE', ML + CW / 2, bannerY + 8, { align: 'center' })
 
-    const rows: [string, string][] = [
-      ["Your Agent's Name :", agent.name],
-      ['Email :', agent.email],
-      ['Phone :', agent.phone],
-    ]
-    for (const [label, value] of rows) {
-      this.need(9)
-      tc(doc, C.gray)
-      doc.setFont('Montserrat', 'normal')
-      doc.setFontSize(10)
-      doc.text(label, ML + 10, this.y)
-      tc(doc, C.darkText)
+    // Large price white bold 20pt at y+17
+    if (this.quote.price !== null) {
+      const priceNum = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(this.quote.price)
+      const currency = this.quote.currency
+
+      // Measure price number width to position currency right after
       doc.setFont('Montserrat', 'bold')
-      doc.text(value, ML + 56, this.y)
-      this.y += 8
+      doc.setFontSize(20)
+      const priceW = doc.getTextWidth(priceNum)
+
+      doc.setFontSize(10)
+      const currW = doc.getTextWidth(' ' + currency)
+
+      const totalW = priceW + currW
+      const startX = ML + CW / 2 - totalW / 2
+
+      // Price number at 20pt
+      tc(doc, C.white)
+      doc.setFont('Montserrat', 'bold')
+      doc.setFontSize(20)
+      doc.text(priceNum, startX, bannerY + 17)
+
+      // Currency at 10pt right after price
+      doc.setFontSize(10)
+      doc.text(' ' + currency, startX + priceW, bannerY + 17)
+    } else {
+      tc(doc, C.white)
+      doc.setFont('Montserrat', 'bold')
+      doc.setFontSize(20)
+      doc.text('—', ML + CW / 2, bannerY + 17, { align: 'center' })
     }
+
+    this.y = bannerY + bannerH + 4
   }
 
-  // ── "Visit Clinic Page" button ───────────────────────────────────────────
-  addVisitClinicButton() {
-    if (!this.quote.clinicProfileUrl) return
-    this.need(18)
-    this.y += 4
+  // ── Two-column includes/excludes (y=103) ───────────────────────────────────
+  addIncludesExcludes() {
     const doc = this.doc
-    const bw = 52
-    const bx = PW - MR - bw
+    const startY = 103
+    this.y = startY
+
+    const leftX  = ML        // 14
+    const leftMaxX = 100
+    const rightX = 110
+    const rightMaxX = 196
+    const leftColW  = leftMaxX - leftX    // 86
+    const rightColW = rightMaxX - rightX  // 86
+
+    const inclusions = this.quote.inclusions  || []
+    const exclusions = this.quote.exclusions  || []
+
+    // Headers
+    // PACKAGE INCLUDES — navy bold 10pt
+    tc(doc, C.navy)
+    doc.setFont('Montserrat', 'bold')
+    doc.setFontSize(10)
+    doc.text('PACKAGE INCLUDES', leftX, startY)
+
+    // PACKAGE EXCLUDES — red bold 10pt
+    tc(doc, C.red)
+    doc.text('PACKAGE EXCLUDES', rightX, startY)
+
+    const lineH = 5.5
+    const itemStartY = startY + 7
+
+    // Calculate max rows to know how far down we go
+    let leftY  = itemStartY
+    let rightY = itemStartY
+
+    // Render inclusions (left column)
+    for (const item of inclusions) {
+      const lines = doc.splitTextToSize(item, leftColW - 8) as string[]
+      const itemH = lines.length * lineH
+
+      // Checkmark
+      drawCheckmark(doc, leftX, leftY)
+
+      // Item text
+      tc(doc, C.darkText)
+      doc.setFont('Montserrat', 'normal')
+      doc.setFontSize(9)
+      doc.text(lines, leftX + 7, leftY + 0.5)
+
+      leftY += itemH + 2
+    }
+
+    // Render exclusions (right column)
+    for (const item of exclusions) {
+      const lines = doc.splitTextToSize(item, rightColW - 8) as string[]
+      const itemH = lines.length * lineH
+
+      // X mark
+      drawX(doc, rightX, rightY)
+
+      // Item text
+      tc(doc, C.darkText)
+      doc.setFont('Montserrat', 'normal')
+      doc.setFontSize(9)
+      doc.text(lines, rightX + 7, rightY + 0.5)
+
+      rightY += itemH + 2
+    }
+
+    this.y = Math.max(leftY, rightY) + 4
+  }
+
+  // ── View Clinic Page button ────────────────────────────────────────────────
+  addViewClinicButton() {
+    if (!this.quote.clinicProfileUrl) return
+    const doc = this.doc
+    const bw = 50
+    const bh = 10
+
+    this.need(bh + 4)
+    this.y += 2
 
     fc(doc, C.navy)
-    doc.roundedRect(bx, this.y, bw, 12, 2, 2, 'F')
+    dc(doc, C.navy)
+    doc.roundedRect(ML, this.y, bw, bh, 2, 2, 'F')
 
     tc(doc, C.white)
     doc.setFont('Montserrat', 'bold')
-    doc.setFontSize(9)
-    doc.text('Visit Clinic Page', bx + bw / 2, this.y + 8, { align: 'center' })
+    doc.setFontSize(8)
+    doc.text('View Clinic Page ->', ML + bw / 2, this.y + 6.5, { align: 'center' })
 
-    doc.link(bx, this.y, bw, 12, { url: this.quote.clinicProfileUrl! })
+    doc.link(ML, this.y, bw, bh, { url: this.quote.clinicProfileUrl! })
 
-    this.y += 18
+    this.y += bh + 4
   }
 
-  // ── Important notes ──────────────────────────────────────────────────────
-  addImportantNotes() {
-    if (!this.quote.importantNotes) return
+  // ── Doctor section (page 2) ────────────────────────────────────────────────
+  addDoctorSection() {
+    const q = this.quote
+    if (!q.surgeonName && !q.surgeonTitle) return
 
-    const bullets = this.quote.importantNotes
-      .replace(/([.!?])\s+/g, '$1|||')
-      .split('|||')
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0)
+    const doc = this.doc
+    this.need(24)
 
-    const estimatedH = Math.min(bullets.length * 7, 60)
-    this.addSectionHeading('Important Notes:', 'bang', estimatedH)
-    this.addBulletList(bullets)
+    // Label
+    tc(doc, C.navy)
+    doc.setFont('Montserrat', 'bold')
+    doc.setFontSize(9.5)
+    doc.text('DOCTOR', ML, this.y)
+    this.y += 6
+
+    if (q.surgeonName) {
+      tc(doc, C.darkText)
+      doc.setFont('Montserrat', 'bold')
+      doc.setFontSize(11)
+      doc.text(q.surgeonName, ML, this.y)
+      this.y += 6
+    }
+
+    if (q.surgeonTitle) {
+      tc(doc, C.gray)
+      doc.setFont('Montserrat', 'normal')
+      doc.setFontSize(9.5)
+      doc.text(q.surgeonTitle, ML, this.y)
+      this.y += 7
+    }
+  }
+
+  // ── Generic section (label + content) ─────────────────────────────────────
+  addSection(label: string, content: string | null) {
+    if (!content) return
+
+    const doc = this.doc
+    this.need(20)
+
+    // Navy bold uppercase label 9.5pt
+    tc(doc, C.navy)
+    doc.setFont('Montserrat', 'bold')
+    doc.setFontSize(9.5)
+    doc.text(label, ML, this.y)
+    this.y += 6
+
+    // Content 9.5pt normal dark
+    tc(doc, C.darkText)
+    doc.setFont('Montserrat', 'normal')
+    doc.setFontSize(9.5)
+    const lines = doc.splitTextToSize(content, CW) as string[]
+    for (const line of lines) {
+      this.need(6)
+      doc.text(line, ML, this.y)
+      this.y += 5.5
+    }
     this.y += 4
+  }
+
+  // ── Agent box anchored near bottom of page 2 ──────────────────────────────
+  addAgentBox(agent: AgentProfile) {
+    const doc = this.doc
+    const boxH = 35
+    const boxY = 239
+
+    // If we're past the anchor point, start a new page
+    if (this.y > 234) this.newPage()
+
+    // Light gray rounded rect at y=239
+    fc(doc, C.lightBg)
+    dc(doc, C.lightBg)
+    doc.roundedRect(ML, boxY, CW, boxH, 3, 3, 'F')
+
+    // "YOUR PATIENT COORDINATOR" navy bold 9.5pt
+    tc(doc, C.navy)
+    doc.setFont('Montserrat', 'bold')
+    doc.setFontSize(9.5)
+    doc.text('YOUR PATIENT COORDINATOR', ML + 8, boxY + 9)
+
+    // Agent name bold 11pt
+    tc(doc, C.darkText)
+    doc.setFont('Montserrat', 'bold')
+    doc.setFontSize(11)
+    doc.text(agent.name, ML + 8, boxY + 18)
+
+    // Email + phone gray 9pt
+    tc(doc, C.gray)
+    doc.setFont('Montserrat', 'normal')
+    doc.setFontSize(9)
+    doc.text(agent.email, ML + 8, boxY + 26)
+    doc.text(agent.phone, ML + 8, boxY + 32)
   }
 
   save(filename: string) {
@@ -478,35 +462,39 @@ class Builder {
   }
 }
 
-// ── Public entry point ─────────────────────────────────────────────────────
+// ── Public entry point ──────────────────────────────────────────────────────
 export async function generateQuotePDF(quote: QuoteData, agent: AgentProfile): Promise<void> {
-  const { doc, logoDataUrl, xMarkDataUrl, checkMarkDataUrl } = await buildDoc()
-  const b = new Builder(quote, doc, logoDataUrl, xMarkDataUrl, checkMarkDataUrl)
+  const { doc, logoDataUrl } = await buildDoc()
+  const b = new Builder(quote, doc, logoDataUrl)
 
-  b.addTreatmentHeading()
-  b.addClinicPriceBlock()
+  // Page 1
+  b.addInfoBox()
+  b.addPriceBanner()
+  b.addIncludesExcludes()
+  b.addViewClinicButton()
 
-  if (quote.inclusions.length > 0) {
-    const inclH = Math.min(quote.inclusions.length * 8, 40)
-    b.addSectionHeading('Package Includes:', 'check', inclH)
-    b.addBulletList(quote.inclusions)
-    b.y += 4
+  // Page 2
+  b.newPage()
+
+  b.addDoctorSection()
+
+  const accredText = quote.accreditations || null
+  b.addSection('CLINIC ACCREDITATION', accredText)
+
+  // Consultation text logic
+  let consultText: string | null = null
+  if (quote.consultationRequired && quote.suggestedConsultTime) {
+    consultText = quote.suggestedConsultTime
+  } else if (quote.consultationRequired) {
+    consultText = 'Consultation required'
+  } else if (quote.suggestedConsultTime) {
+    consultText = quote.suggestedConsultTime
   }
+  b.addSection('CONSULTATION', consultText)
 
-  b.addVisitClinicButton()
+  b.addSection('IMPORTANT NOTES', quote.importantNotes || null)
 
-  if (quote.exclusions.length > 0) {
-    const exclH = Math.min(quote.exclusions.length * 8, 50)
-    b.addSectionHeading('Package Excludes:', 'x', exclH)
-    b.addBulletList(quote.exclusions)
-    b.y += 4
-  }
-
-  b.addSurgeonSection()
-  b.addConsultationSection()
-  b.addNextStepBox()
-  b.addAgentContact(agent)
-  b.addImportantNotes()
+  b.addAgentBox(agent)
 
   const safeName = (s: string | null) => (s ?? '').replace(/[^a-zA-Z0-9]+/g, '_')
   const filename = `Quote_${safeName(quote.patientName)}_${safeName(quote.treatmentName)}.pdf`
