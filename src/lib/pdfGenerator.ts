@@ -84,18 +84,25 @@ function drawHeader(doc: jsPDF, quote: QuoteData, logoDataUrl: string) {
     : new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })
   doc.text(`Date: ${dateStr}`, PW - MR, 20, { align: 'right' })
 
-  // "Quote for:" gray 8.5pt right-aligned
-  doc.text('Quote for:', PW - MR, 26, { align: 'right' })
-
-  // Patient name bold dark 9.5pt right-aligned
+  // "Quote for: PatientName" on same line, right-aligned
+  const patientName = quote.patientName || 'Patient Name'
+  doc.setFont('Montserrat', 'bold')
+  doc.setFontSize(9)
+  const nameW = doc.getTextWidth(patientName)
+  doc.setFont('Montserrat', 'normal')
+  doc.setFontSize(9)
+  const labelW = doc.getTextWidth('Quote for: ')
+  const startX = PW - MR - labelW - nameW
+  tc(doc, C.gray)
+  doc.text('Quote for: ', startX, 27)
   tc(doc, C.darkText)
   doc.setFont('Montserrat', 'bold')
-  doc.setFontSize(9.5)
-  doc.text(quote.patientName || 'Patient Name', PW - MR, 32, { align: 'right' })
+  doc.setFontSize(9)
+  doc.text(patientName, startX + labelW, 27)
 
-  // Horizontal divider at y=36
+  // Horizontal divider at y=36 — thicker
   dc(doc, C.lineGray)
-  doc.setLineWidth(0.3)
+  doc.setLineWidth(0.8)
   doc.line(ML, HEADER_BOTTOM, PW - MR, HEADER_BOTTOM)
 }
 
@@ -158,11 +165,11 @@ class Builder {
     if (this.y + h > MAX_Y) this.newPage()
   }
 
-  // ── Info box (y=43, h=26) ──────────────────────────────────────────────────
+  // ── Info box (y=43, h=32) ──────────────────────────────────────────────────
   addInfoBox() {
     const doc = this.doc
     const boxY = 43
-    const boxH = 26
+    const boxH = 32
     const colW = CW / 3
 
     // Light gray rounded rect
@@ -179,35 +186,35 @@ class Builder {
     columns.forEach((col, i) => {
       const colX = ML + i * colW
 
-      // Small uppercase gray bold label at +8
+      // Small uppercase gray bold label
       tc(doc, C.gray)
       doc.setFont('Montserrat', 'bold')
-      doc.setFontSize(7.5)
-      doc.text(col.label, colX + colW / 2, boxY + 8, { align: 'center' })
+      doc.setFontSize(8)
+      doc.text(col.label, colX + colW / 2, boxY + 10, { align: 'center' })
 
-      // Bold dark value at +15
+      // Bold dark value — bigger font
       tc(doc, C.darkText)
       doc.setFont('Montserrat', 'bold')
-      doc.setFontSize(9.5)
-      const maxW = colW - 6
+      doc.setFontSize(12)
+      const maxW = colW - 8
       const lines = doc.splitTextToSize(col.value, maxW) as string[]
-      doc.text(lines[0] || col.value, colX + colW / 2, boxY + 15, { align: 'center' })
+      doc.text(lines[0] || col.value, colX + colW / 2, boxY + 22, { align: 'center' })
 
       // Thin vertical separator between columns
       if (i > 0) {
         dc(doc, C.lineGray)
         doc.setLineWidth(0.3)
-        doc.line(colX, boxY + 4, colX, boxY + boxH - 4)
+        doc.line(colX, boxY + 5, colX, boxY + boxH - 5)
       }
     })
 
-    this.y = boxY + boxH + 4
+    this.y = boxY + boxH + 6
   }
 
-  // ── Price banner (y=75, h=22) ──────────────────────────────────────────────
+  // ── Price banner ───────────────────────────────────────────────────────────
   addPriceBanner() {
     const doc = this.doc
-    const bannerY = 75
+    const bannerY = this.y
     const bannerH = 22
 
     // Navy full-width rounded rect
@@ -256,99 +263,86 @@ class Builder {
     this.y = bannerY + bannerH + 4
   }
 
-  // ── Two-column includes/excludes (y=103) ───────────────────────────────────
+  // ── Two-column includes/excludes ───────────────────────────────────────────
   addIncludesExcludes() {
     const doc = this.doc
-    const startY = 103
-    this.y = startY
+    const startY = this.y + 12   // gap after price banner
 
-    const leftX  = ML        // 14
-    const leftMaxX = 100
-    const rightX = 110
-    const rightMaxX = 196
-    const leftColW  = leftMaxX - leftX    // 86
-    const rightColW = rightMaxX - rightX  // 86
+    const leftX  = ML
+    const rightX = ML + CW / 2 + 4
+    const colW   = CW / 2 - 4
 
-    const inclusions = this.quote.inclusions  || []
-    const exclusions = this.quote.exclusions  || []
+    const inclusions = this.quote.inclusions || []
+    const exclusions = this.quote.exclusions || []
 
     // Headers
-    // PACKAGE INCLUDES — navy bold 10pt
     tc(doc, C.navy)
     doc.setFont('Montserrat', 'bold')
     doc.setFontSize(10)
     doc.text('PACKAGE INCLUDES', leftX, startY)
 
-    // PACKAGE EXCLUDES — red bold 10pt
     tc(doc, C.red)
     doc.text('PACKAGE EXCLUDES', rightX, startY)
 
-    const lineH = 5.5
-    const itemStartY = startY + 7
+    const fontSize = 10
+    const lineH = 6.5
+    const itemStartY = startY + 9
 
-    // Calculate max rows to know how far down we go
     let leftY  = itemStartY
     let rightY = itemStartY
 
     // Render inclusions (left column)
     for (const item of inclusions) {
-      const lines = doc.splitTextToSize(item, leftColW - 8) as string[]
+      const lines = doc.splitTextToSize(item, colW - 9) as string[]
       const itemH = lines.length * lineH
-
-      // Checkmark
-      drawCheckmark(doc, leftX, leftY)
-
-      // Item text
+      drawCheckmark(doc, leftX, leftY - 3)      // align mark with text
       tc(doc, C.darkText)
       doc.setFont('Montserrat', 'normal')
-      doc.setFontSize(9)
-      doc.text(lines, leftX + 7, leftY + 0.5)
-
-      leftY += itemH + 2
+      doc.setFontSize(fontSize)
+      doc.text(lines, leftX + 8, leftY)
+      leftY += itemH + 3
     }
 
     // Render exclusions (right column)
     for (const item of exclusions) {
-      const lines = doc.splitTextToSize(item, rightColW - 8) as string[]
+      const lines = doc.splitTextToSize(item, colW - 9) as string[]
       const itemH = lines.length * lineH
-
-      // X mark
-      drawX(doc, rightX, rightY)
-
-      // Item text
+      drawX(doc, rightX, rightY - 3)            // align mark with text
       tc(doc, C.darkText)
       doc.setFont('Montserrat', 'normal')
-      doc.setFontSize(9)
-      doc.text(lines, rightX + 7, rightY + 0.5)
-
-      rightY += itemH + 2
+      doc.setFontSize(fontSize)
+      doc.text(lines, rightX + 8, rightY)
+      rightY += itemH + 3
     }
 
     this.y = Math.max(leftY, rightY) + 4
   }
 
-  // ── View Clinic Page button ────────────────────────────────────────────────
+  // ── View Clinic Page button — anchored to bottom of page 1 ──────────────
   addViewClinicButton() {
     if (!this.quote.clinicProfileUrl) return
     const doc = this.doc
-    const bw = 50
+    const bw = 55
     const bh = 10
+    // Anchor: divider at FOOTER_Y - 22, button just below
+    const dividerY = FOOTER_Y - 22
+    const btnY = dividerY + 6
 
-    this.need(bh + 4)
-    this.y += 2
+    // Full-width divider line above button
+    dc(doc, C.lineGray)
+    doc.setLineWidth(0.4)
+    doc.line(ML, dividerY, PW - MR, dividerY)
 
     fc(doc, C.navy)
     dc(doc, C.navy)
-    doc.roundedRect(ML, this.y, bw, bh, 2, 2, 'F')
+    doc.roundedRect(ML, btnY, bw, bh, 2, 2, 'F')
 
     tc(doc, C.white)
     doc.setFont('Montserrat', 'bold')
     doc.setFontSize(8)
-    doc.text('View Clinic Page ->', ML + bw / 2, this.y + 6.5, { align: 'center' })
+    doc.text('View Clinic Page →', ML + bw / 2, btnY + 6.5, { align: 'center' })
 
-    doc.link(ML, this.y, bw, bh, { url: this.quote.clinicProfileUrl! })
-
-    this.y += bh + 4
+    doc.link(ML, btnY, bw, bh, { url: this.quote.clinicProfileUrl! })
   }
 
   // ── Doctor section (page 2) ────────────────────────────────────────────────
@@ -379,7 +373,7 @@ class Builder {
       doc.setFont('Montserrat', 'normal')
       doc.setFontSize(9.5)
       doc.text(q.surgeonTitle, ML, this.y)
-      this.y += 7
+      this.y += 12
     }
   }
 
@@ -407,41 +401,43 @@ class Builder {
       doc.text(line, ML, this.y)
       this.y += 5.5
     }
-    this.y += 4
+    this.y += 12
   }
 
-  // ── Agent box anchored near bottom of page 2 ──────────────────────────────
+  // ── Agent box anchored near bottom of last page ───────────────────────────
   addAgentBox(agent: AgentProfile) {
     const doc = this.doc
-    const boxH = 35
-    const boxY = 239
+    const boxH = 44
+    const boxY = 228
 
     // If we're past the anchor point, start a new page
-    if (this.y > 234) this.newPage()
+    if (this.y > boxY - 4) this.newPage()
 
-    // Light gray rounded rect at y=239
+    // Light gray rounded rect
     fc(doc, C.lightBg)
     dc(doc, C.lightBg)
     doc.roundedRect(ML, boxY, CW, boxH, 3, 3, 'F')
 
-    // "YOUR PATIENT COORDINATOR" navy bold 9.5pt
+    // "YOUR PATIENT COORDINATOR" navy bold 9pt — top padding ~11mm
     tc(doc, C.navy)
     doc.setFont('Montserrat', 'bold')
-    doc.setFontSize(9.5)
-    doc.text('YOUR PATIENT COORDINATOR', ML + 8, boxY + 9)
+    doc.setFontSize(9)
+    doc.text('YOUR PATIENT COORDINATOR', ML + 8, boxY + 11)
 
     // Agent name bold 11pt
     tc(doc, C.darkText)
     doc.setFont('Montserrat', 'bold')
     doc.setFontSize(11)
-    doc.text(agent.name, ML + 8, boxY + 18)
+    doc.text(agent.name, ML + 8, boxY + 21)
 
-    // Email + phone gray 9pt
+    // Email gray 9pt
     tc(doc, C.gray)
     doc.setFont('Montserrat', 'normal')
     doc.setFontSize(9)
-    doc.text(agent.email, ML + 8, boxY + 26)
-    doc.text(agent.phone, ML + 8, boxY + 32)
+    doc.text(agent.email, ML + 8, boxY + 31)
+
+    // Phone gray 9pt
+    doc.text(agent.phone, ML + 8, boxY + 39)
   }
 
   save(filename: string) {
