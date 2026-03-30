@@ -36,9 +36,31 @@ Rules:
 - currency: ISO code — THB, USD, MXN, EUR, BRL, GBP, AUD, etc. Default to USD if unknown
 - Handle any language (Spanish, Portuguese, Thai, French, etc.)
 - clinicLocation: "City, Country" format
-- importantNotes: combine all medical/clinical notes into one string
+- consultationRequired: set true if ANY mention of consultation, consultation appointment, or follow-up visit is found
+- suggestedConsultTime: extract the SPECIFIC date, time, or scheduling info for the consultation — look for any mention of appointment dates, times, "schedule on", "available on", "consult on", "follow-up on" etc. This MUST be extracted here, never left in importantNotes
+- importantNotes: combine all medical/clinical notes into one string — NEVER include consultation scheduling info here, it belongs in suggestedConsultTime
 - accreditations: combine all accreditation details into one string
-- If savings or reducedFrom can be inferred from context, include them`
+- reducedFrom: the original/regular/full price BEFORE any discount — look for words like "regular price", "original price", "reduced from", "was", "normal price", "list price"
+- savings: the discount amount in the same currency — look for "save", "savings", "discount", "you save", or calculate as reducedFrom - price if both are present
+- Always extract reducedFrom and savings if ANY pricing comparison is mentioned in the text
+- importantNotes: EXCLUDE any pricing-related information (prices, discounts, savings, payment terms, costs) — pricing is already captured in the price fields above. Only include clinical/medical notes here. Format as structured bullet points: use "- " for top-level bullets and "  - " (2 spaces + dash + space) for sub-bullets. Example: "- Recovery timeline:\\n  - Week 1-2: swelling and bruising\\n  - Week 3-4: social recovery\\n- Post-op care required"`
+
+async function notifyError(type, message, step) {
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) return
+  try {
+    await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: 'MD Quote Generator <onboarding@resend.dev>',
+        to: 'yana.arkhipova@dentaldepartures.com',
+        subject: `[MD Quote Gen] Server Error: ${type}`,
+        html: `<p><b>Error:</b> ${type}</p><p><b>Step:</b> ${step}</p><p><b>Message:</b> <code>${message}</code></p><p><b>Time:</b> ${new Date().toISOString()}</p>`,
+      }),
+    })
+  } catch { /* silent */ }
+}
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
@@ -70,6 +92,7 @@ exports.handler = async (event) => {
 
     if (!response.ok) {
       const errText = await response.text()
+      await notifyError('Anthropic API Error', errText, 'AI extraction request')
       return { statusCode: 500, body: JSON.stringify({ error: `Anthropic error: ${errText}` }) }
     }
 
@@ -97,6 +120,7 @@ exports.handler = async (event) => {
       body: JSON.stringify(data),
     }
   } catch (err) {
+    await notifyError('Extraction Function Crash', String(err), 'Netlify function handler')
     return { statusCode: 500, body: JSON.stringify({ error: String(err) }) }
   }
 }

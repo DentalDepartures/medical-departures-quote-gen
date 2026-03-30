@@ -29,10 +29,12 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 function QuoteEditor({ q, onChange }: { q: QuoteData; onChange: (q: QuoteData) => void }) {
+  const [inclText, setInclText] = useState(() => q.inclusions.join('\n'))
+  const [exclText, setExclText] = useState(() => q.exclusions.join('\n'))
+
   function set<K extends keyof QuoteData>(key: K, value: QuoteData[K]) {
     onChange({ ...q, [key]: value })
   }
-  function arrayToText(arr: string[]) { return arr.join('\n') }
   function textToArray(text: string) { return text.split('\n').filter((s) => s.trim().length > 0) }
 
   return (
@@ -99,12 +101,14 @@ function QuoteEditor({ q, onChange }: { q: QuoteData; onChange: (q: QuoteData) =
 
       <Section title="Package">
         <Field label="Inclusions (one per line)">
-          <textarea className="input-field h-32 resize-none" value={arrayToText(q.inclusions)}
-            onChange={(e) => set('inclusions', textToArray(e.target.value))} />
+          <textarea className="input-field h-32 resize-none" value={inclText}
+            onChange={(e) => setInclText(e.target.value)}
+            onBlur={() => set('inclusions', textToArray(inclText))} />
         </Field>
         <Field label="Exclusions (one per line)">
-          <textarea className="input-field h-24 resize-none" value={arrayToText(q.exclusions)}
-            onChange={(e) => set('exclusions', textToArray(e.target.value))} />
+          <textarea className="input-field h-24 resize-none" value={exclText}
+            onChange={(e) => setExclText(e.target.value)}
+            onBlur={() => set('exclusions', textToArray(exclText))} />
         </Field>
       </Section>
 
