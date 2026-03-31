@@ -40,8 +40,9 @@ export default function App() {
     setIsLoading(true)
     setExtractError(null)
     try {
+      const today = new Date().toLocaleDateString('en-CA') // YYYY-MM-DD
       const data = await extractQuoteData(rawText)
-      setQuotes(data)
+      setQuotes(data.map(q => ({ ...q, quoteDate: today })))
       setStep('review')
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err)
