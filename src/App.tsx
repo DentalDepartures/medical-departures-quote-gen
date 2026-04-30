@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import type { AgentProfile, QuoteData, ClinicRow, SelectedClinic, SelectedDoctor } from './types'
 import { extractQuoteData } from './lib/extraction'
-import { generateQuotePDF } from './lib/pdfGenerator'
+import { generateDDQuotePDF } from './lib/pdfGeneratorDD'
+import { generateMDQuotePDF } from './lib/pdfGeneratorMD'
 import { BrandProvider, useBrand } from './contexts/BrandContext'
 import { fetchClinicRows } from './lib/clinicsApi'
 
@@ -136,8 +137,9 @@ function AppContent() {
     if (!profile) return
     setIsGenerating(true)
     try {
+      const generator = brand === 'DD' ? generateDDQuotePDF : generateMDQuotePDF
       for (const quote of data) {
-        await generateQuotePDF(quote, profile)
+        await generator(quote, profile)
       }
       setQuotes(data)
       setStep('done')
