@@ -1,7 +1,9 @@
-import { useState } from 'react'
-import type { AgentProfile, QuoteData } from './types'
+import { useState, useEffect } from 'react'
+import type { AgentProfile, QuoteData, ClinicRow, SelectedClinic, SelectedDoctor } from './types'
 import { extractQuoteData } from './lib/extraction'
 import { generateQuotePDF } from './lib/pdfGenerator'
+import { BrandProvider, useBrand } from './contexts/BrandContext'
+import { fetchClinicRows } from './lib/clinicsApi'
 
 import PasteInput from './components/PasteInput'
 import ReviewForm from './components/ReviewForm'
@@ -25,7 +27,15 @@ async function reportError(params: {
   } catch { /* never block the UI */ }
 }
 
-export default function App() {
+function todayDDMMYYYY(): string {
+  const d = new Date()
+  const dd = String(d.getDate()).padStart(2, '0')
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  return `${dd}/${mm}/${d.getFullYear()}`
+}
+
+function AppContent() {
+  const { brand } = useBrand()
   const [step, setStep] = useState<'paste' | 'review' | 'done'>('paste')
   const [profile, setProfile] = useState<AgentProfile | null>(null)
   const [quotes, setQuotes] = useState<QuoteData[] | null>(null)
@@ -34,20 +44,68 @@ export default function App() {
   const [extractError, setExtractError] = useState<string | null>(null)
   const [showApiKeyModal, setShowApiKeyModal] = useState(false)
   const [pendingRawText, setPendingRawText] = useState<string | null>(null)
+  const [pendingClinic, setPendingClinic] = useState<SelectedClinic | null>(null)
+  const [pendingDoctor, setPendingDoctor] = useState<SelectedDoctor | null>(null)
 
-  async function handleGenerate(rawText: string, p: AgentProfile) {
+  // Clinic rows — fetched live from Google Sheet via Netlify function
+  const [clinicRows, setClinicRows] = useState<ClinicRow[]>([])
+  const [clinicsLoading, setClinicsLoading] = useState(true)
+
+  useEffect(() => {
+    fetchClinicRows()
+      .then(setClinicRows)
+      .catch(console.error)
+      .finally(() => setClinicsLoading(false))
+  }, [])
+
+  async function handleGenerate(
+    rawText: string,
+    p: AgentProfile,
+    clinic: SelectedClinic | null,
+    doctor: SelectedDoctor | null,
+  ) {
     setProfile(p)
     setIsLoading(true)
     setExtractError(null)
     try {
-      const today = new Date().toLocaleDateString('en-CA') // YYYY-MM-DD
       const data = await extractQuoteData(rawText)
-      setQuotes(data.map(q => ({ ...q, quoteDate: today })))
+      const today = todayDDMMYYYY()
+      setQuotes(
+        data.map((q) => ({
+          ...q,
+          quoteDate: today,
+          // fields not in extraction schema — set defaults
+          clinicImage1: null,
+          clinicImage2: null,
+          doctorPictureUrl: null,
+          // override with clinic selection
+          ...(clinic
+            ? {
+                clinicName: clinic.clinic_name,
+                clinicLocation: clinic.location,
+                clinicProfileUrl: clinic.clinic_profile_url,
+                clinicImage1: clinic.clinic_image_1 || null,
+                clinicImage2: clinic.clinic_image_2 || null,
+              }
+            : {}),
+          // override with doctor selection
+          ...(doctor
+            ? {
+                surgeonName: doctor.surgeon_name,
+                surgeonTitle: doctor.surgeon_title,
+                accreditations: doctor.accreditations,
+                doctorPictureUrl: doctor.doctor_picture_url,
+              }
+            : {}),
+        })),
+      )
       setStep('review')
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err)
       if (msg === 'NO_API_KEY') {
         setPendingRawText(rawText)
+        setPendingClinic(clinic)
+        setPendingDoctor(doctor)
         setShowApiKeyModal(true)
       } else {
         setExtractError(msg)
@@ -67,8 +125,10 @@ export default function App() {
   function handleApiKeySaved() {
     setShowApiKeyModal(false)
     if (pendingRawText && profile) {
-      void handleGenerate(pendingRawText, profile)
+      void handleGenerate(pendingRawText, profile, pendingClinic, pendingDoctor)
       setPendingRawText(null)
+      setPendingClinic(null)
+      setPendingDoctor(null)
     }
   }
 
@@ -103,14 +163,28 @@ export default function App() {
     setStep('paste')
   }
 
+  // Filter clinic rows by active brand
+  const brandRows = clinicRows.filter((r) => r.brand === brand)
+
   if (step === 'paste') {
     return (
       <>
-        <PasteInput onGenerate={handleGenerate} isLoading={isLoading} error={extractError} />
+        <PasteInput
+          rows={brandRows}
+          clinicsLoading={clinicsLoading}
+          onGenerate={handleGenerate}
+          isLoading={isLoading}
+          error={extractError}
+        />
         {showApiKeyModal && (
           <ApiKeySetup
             onSave={handleApiKeySaved}
-            onCancel={() => { setShowApiKeyModal(false); setPendingRawText(null) }}
+            onCancel={() => {
+              setShowApiKeyModal(false)
+              setPendingRawText(null)
+              setPendingClinic(null)
+              setPendingDoctor(null)
+            }}
           />
         )}
       </>
@@ -133,4 +207,12 @@ export default function App() {
   }
 
   return null
+}
+
+export default function App() {
+  return (
+    <BrandProvider>
+      <AppContent />
+    </BrandProvider>
+  )
 }

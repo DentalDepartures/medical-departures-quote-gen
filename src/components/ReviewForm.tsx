@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { QuoteData } from '../types'
+import { useBrand } from '../contexts/BrandContext'
 
 interface Props {
   initial: QuoteData[]
@@ -9,6 +10,8 @@ interface Props {
 }
 
 const CURRENCIES = ['THB', 'USD', 'MXN', 'EUR', 'BRL', 'GBP', 'AUD', 'CAD', 'SGD', 'HKD']
+
+const LIMITS = { inclusions: 30, exclusions: 7, notes: 27 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -28,126 +31,183 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   )
 }
 
+function ReadOnlyField({ label, value }: { label: string; value: string | null | undefined }) {
+  return (
+    <div>
+      <label className="label">{label}</label>
+      <div
+        className="input-field flex items-center"
+        style={{
+          background: '#f5f5f5',
+          color: '#999',
+          cursor: 'not-allowed',
+          minHeight: 38,
+          userSelect: 'none',
+        }}
+      >
+        {value || <span style={{ color: '#ccc' }}>—</span>}
+      </div>
+    </div>
+  )
+}
+
+function LineCounter({ text, max }: { text: string; max: number }) {
+  const count = text.split('\n').filter((l) => l.trim().length > 0).length
+  const over = count > max
+  const near = !over && count >= max - 3
+  const color = over ? '#e51b24' : near ? '#e07b00' : '#aaa'
+  return (
+    <div className="text-xs text-right mt-1 font-medium" style={{ color }}>
+      {over && '⚠ Over limit — '}
+      {count} / {max} lines
+    </div>
+  )
+}
+
 function QuoteEditor({ q, onChange }: { q: QuoteData; onChange: (q: QuoteData) => void }) {
   const [inclText, setInclText] = useState(() => q.inclusions.join('\n'))
   const [exclText, setExclText] = useState(() => q.exclusions.join('\n'))
+  const [notesText, setNotesText] = useState(() => q.importantNotes ?? '')
+
+  const inclCount = inclText.split('\n').filter((l) => l.trim().length > 0).length
+  const exclCount = exclText.split('\n').filter((l) => l.trim().length > 0).length
+  const notesCount = notesText.split('\n').filter((l) => l.trim().length > 0).length
 
   function set<K extends keyof QuoteData>(key: K, value: QuoteData[K]) {
     onChange({ ...q, [key]: value })
   }
-  function textToArray(text: string) { return text.split('\n').filter((s) => s.trim().length > 0) }
+  function textToArray(text: string) {
+    return text.split('\n').filter((s) => s.trim().length > 0)
+  }
+
+  const textareaStyle = (count: number, max: number): React.CSSProperties => ({
+    border: `1.5px solid ${count > max ? '#e51b24' : '#d1d5db'}`,
+    borderRadius: 8,
+    padding: '8px 12px',
+    width: '100%',
+    fontSize: 13,
+    fontFamily: 'inherit',
+    outline: 'none',
+    resize: 'vertical' as const,
+    lineHeight: 1.6,
+  })
 
   return (
     <div className="card space-y-0">
+      {/* Patient */}
       <Section title="Patient">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field label="Patient Name">
-            <input type="text" className="input-field" value={q.patientName ?? ''}
-              onChange={(e) => set('patientName', e.target.value || null)} />
+            <input
+              type="text"
+              className="input-field"
+              value={q.patientName ?? ''}
+              onChange={(e) => set('patientName', e.target.value || null)}
+            />
           </Field>
-          <Field label="Quote Date">
-            <input type="text" className="input-field" placeholder="e.g. 03/25/2025"
-              value={q.quoteDate ?? ''} onChange={(e) => set('quoteDate', e.target.value || null)} />
-          </Field>
+          <ReadOnlyField label="Quote Date" value={q.quoteDate} />
         </div>
       </Section>
 
+      {/* Treatment */}
       <Section title="Treatment">
         <Field label="Treatment Name">
-          <input type="text" className="input-field" value={q.treatmentName ?? ''}
-            onChange={(e) => set('treatmentName', e.target.value || null)} />
+          <input
+            type="text"
+            className="input-field"
+            value={q.treatmentName ?? ''}
+            onChange={(e) => set('treatmentName', e.target.value || null)}
+          />
         </Field>
       </Section>
 
+      {/* Clinic (all non-editable) */}
       <Section title="Clinic">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Field label="Clinic Name">
-            <input type="text" className="input-field" value={q.clinicName ?? ''}
-              onChange={(e) => set('clinicName', e.target.value || null)} />
-          </Field>
-          <Field label="Location (City, Country)">
-            <input type="text" className="input-field" placeholder="Bangkok, Thailand"
-              value={q.clinicLocation ?? ''} onChange={(e) => set('clinicLocation', e.target.value || null)} />
-          </Field>
+          <ReadOnlyField label="Clinic Name" value={q.clinicName} />
+          <ReadOnlyField label="Location" value={q.clinicLocation} />
         </div>
-        <Field label="Clinic Profile URL (optional)">
-          <input type="url" className="input-field" placeholder="https://..."
-            value={q.clinicProfileUrl ?? ''} onChange={(e) => set('clinicProfileUrl', e.target.value || null)} />
-        </Field>
+        <ReadOnlyField label="Clinic Profile URL" value={q.clinicProfileUrl} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <ReadOnlyField label="Clinic Image 1" value={q.clinicImage1} />
+          <ReadOnlyField label="Clinic Image 2" value={q.clinicImage2} />
+        </div>
       </Section>
 
+      {/* Pricing */}
       <Section title="Pricing">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 gap-4" style={{ maxWidth: 320 }}>
           <div>
             <label className="label">Currency</label>
-            <select className="input-field" value={q.currency} onChange={(e) => set('currency', e.target.value)}>
-              {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+            <select
+              className="input-field"
+              value={q.currency}
+              onChange={(e) => set('currency', e.target.value)}
+            >
+              {CURRENCIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
             </select>
           </div>
-          <Field label="Price">
-            <input type="number" className="input-field" placeholder="270000" value={q.price ?? ''}
-              onChange={(e) => set('price', e.target.value ? parseFloat(e.target.value) : null)} />
-          </Field>
-          <Field label="Original Price">
-            <input type="number" className="input-field" placeholder="Reduced from" value={q.reducedFrom ?? ''}
-              onChange={(e) => set('reducedFrom', e.target.value ? parseFloat(e.target.value) : null)} />
-          </Field>
-          <Field label="Savings">
-            <input type="number" className="input-field" placeholder="Auto-calc" value={q.savings ?? ''}
-              onChange={(e) => set('savings', e.target.value ? parseFloat(e.target.value) : null)} />
+          <Field label="Final Price">
+            <input
+              type="number"
+              className="input-field"
+              placeholder="270000"
+              value={q.price ?? ''}
+              onChange={(e) => set('price', e.target.value ? parseFloat(e.target.value) : null)}
+            />
           </Field>
         </div>
       </Section>
 
+      {/* Package */}
       <Section title="Package">
-        <Field label="Inclusions (one per line)">
-          <textarea className="input-field h-32 resize-none" value={inclText}
+        <Field label={`Inclusions (one per line)`}>
+          <textarea
+            value={inclText}
             onChange={(e) => setInclText(e.target.value)}
-            onBlur={() => set('inclusions', textToArray(inclText))} />
+            onBlur={() => set('inclusions', textToArray(inclText))}
+            style={{ ...textareaStyle(inclCount, LIMITS.inclusions), minHeight: 128 }}
+          />
+          <LineCounter text={inclText} max={LIMITS.inclusions} />
         </Field>
-        <Field label="Exclusions (one per line)">
-          <textarea className="input-field h-24 resize-none" value={exclText}
+        <Field label={`Exclusions (one per line)`}>
+          <textarea
+            value={exclText}
             onChange={(e) => setExclText(e.target.value)}
-            onBlur={() => set('exclusions', textToArray(exclText))} />
+            onBlur={() => set('exclusions', textToArray(exclText))}
+            style={{ ...textareaStyle(exclCount, LIMITS.exclusions), minHeight: 96 }}
+          />
+          <LineCounter text={exclText} max={LIMITS.exclusions} />
         </Field>
       </Section>
 
+      {/* Doctor (all non-editable) */}
       <Section title="Surgeon & Accreditation">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Field label="Surgeon Name">
-            <input type="text" className="input-field" value={q.surgeonName ?? ''}
-              onChange={(e) => set('surgeonName', e.target.value || null)} />
-          </Field>
-          <Field label="Surgeon Title">
-            <input type="text" className="input-field" value={q.surgeonTitle ?? ''}
-              onChange={(e) => set('surgeonTitle', e.target.value || null)} />
-          </Field>
+          <ReadOnlyField label="Surgeon Name" value={q.surgeonName} />
+          <ReadOnlyField label="Surgeon Title" value={q.surgeonTitle} />
         </div>
-        <Field label="Accreditations">
-          <input type="text" className="input-field" placeholder="e.g. JCI Accredited"
-            value={q.accreditations ?? ''} onChange={(e) => set('accreditations', e.target.value || null)} />
-        </Field>
+        <ReadOnlyField label="Accreditations" value={q.accreditations} />
+        <ReadOnlyField label="Doctor Picture URL" value={q.doctorPictureUrl} />
       </Section>
 
-      <Section title="Consultation">
-        <div className="flex items-center gap-3">
-          <input id="consult-req" type="checkbox" className="w-4 h-4 rounded accent-navy"
-            checked={q.consultationRequired ?? false}
-            onChange={(e) => set('consultationRequired', e.target.checked)} />
-          <label htmlFor="consult-req" className="text-sm font-medium text-gray-700">Consultation Required</label>
-        </div>
-        <Field label="Suggested Consult Day & Time">
-          <input type="text" className="input-field" placeholder="e.g. Friday, 2:00 PM"
-            value={q.suggestedConsultTime ?? ''}
-            onChange={(e) => set('suggestedConsultTime', e.target.value || null)} />
-        </Field>
-      </Section>
-
+      {/* Important Notes */}
       <Section title="Important Notes">
-        <Field label="Clinical / Medical Notes">
-          <textarea className="input-field h-24 resize-none"
-            placeholder="Any important notes that should appear on the quote..."
-            value={q.importantNotes ?? ''} onChange={(e) => set('importantNotes', e.target.value || null)} />
+        <Field label="Clinical / Medical Notes (bullet points — start each line with -)">
+          <textarea
+            value={notesText}
+            onChange={(e) => {
+              setNotesText(e.target.value)
+              set('importantNotes', e.target.value || null)
+            }}
+            placeholder="- Note one&#10;- Note two&#10;  - Sub-note"
+            style={{ ...textareaStyle(notesCount, LIMITS.notes), minHeight: 96 }}
+          />
+          <LineCounter text={notesText} max={LIMITS.notes} />
         </Field>
       </Section>
     </div>
@@ -155,6 +215,7 @@ function QuoteEditor({ q, onChange }: { q: QuoteData; onChange: (q: QuoteData) =
 }
 
 export default function ReviewForm({ initial, onConfirm, onBack, isGenerating }: Props) {
+  const { config } = useBrand()
   const [quotes, setQuotes] = useState<QuoteData[]>(initial)
   const [activeIdx, setActiveIdx] = useState(0)
 
@@ -164,41 +225,72 @@ export default function ReviewForm({ initial, onConfirm, onBack, isGenerating }:
   }
 
   const tabLabel = (q: QuoteData, i: number) =>
-    q.treatmentName ? (q.treatmentName.length > 22 ? q.treatmentName.slice(0, 20) + '…' : q.treatmentName) : `Procedure ${i + 1}`
+    q.treatmentName
+      ? q.treatmentName.length > 22
+        ? q.treatmentName.slice(0, 20) + '…'
+        : q.treatmentName
+      : `Procedure ${i + 1}`
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Sticky toolbar */}
-      <div className="sticky top-0 z-50 flex items-center justify-between px-6 py-3"
-        style={{ background: '#1a1a1a' }}>
-        <button onClick={onBack} className="text-sm font-semibold rounded-md px-4 py-2 transition-colors"
-          style={{ background: 'transparent', border: '1.5px solid rgba(255,255,255,0.3)', color: 'white', cursor: 'pointer', fontFamily: 'inherit' }}>
+      <div
+        className="sticky top-0 z-50 flex items-center justify-between px-6 py-3"
+        style={{ background: '#1a1a1a' }}
+      >
+        <button
+          onClick={onBack}
+          className="text-sm font-semibold rounded-md px-4 py-2 transition-colors"
+          style={{
+            background: 'transparent',
+            border: '1.5px solid rgba(255,255,255,0.3)',
+            color: 'white',
+            cursor: 'pointer',
+            fontFamily: 'inherit',
+          }}
+        >
           ← Edit Data
         </button>
         <div className="text-sm font-bold text-white hidden sm:block">
-          {quotes.length > 1 ? `${quotes.length} Procedures` : (quotes[0]?.patientName || 'Quote')}
+          {quotes.length > 1 ? `${quotes.length} Procedures` : quotes[0]?.patientName || 'Quote'}
         </div>
-        <button form="review-form" type="submit" disabled={isGenerating}
+        <button
+          form="review-form"
+          type="submit"
+          disabled={isGenerating}
           className="text-sm font-bold rounded-md px-5 py-2"
-          style={{ background: '#00467f', border: 'none', color: 'white', cursor: isGenerating ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: isGenerating ? 0.7 : 1 }}>
-          {isGenerating ? 'Generating…' : `⬇ Download ${quotes.length > 1 ? `${quotes.length} PDFs` : 'PDF'}`}
+          style={{
+            background: config.primary,
+            border: 'none',
+            color: config.primaryText,
+            cursor: isGenerating ? 'not-allowed' : 'pointer',
+            fontFamily: 'inherit',
+            opacity: isGenerating ? 0.7 : 1,
+          }}
+        >
+          {isGenerating
+            ? 'Generating…'
+            : `⬇ Download ${quotes.length > 1 ? `${quotes.length} PDFs` : 'PDF'}`}
         </button>
       </div>
 
       <div className="max-w-3xl mx-auto px-4 py-8">
-        {/* Tabs — only shown for multiple procedures */}
+        {/* Procedure tabs — only for multiple procedures */}
         {quotes.length > 1 && (
           <div className="flex gap-2 mb-6 flex-wrap">
             {quotes.map((q, i) => (
-              <button key={i} onClick={() => setActiveIdx(i)}
+              <button
+                key={i}
+                onClick={() => setActiveIdx(i)}
                 className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
                 style={{
-                  background: activeIdx === i ? '#00467f' : '#e5e7eb',
-                  color: activeIdx === i ? 'white' : '#374151',
+                  background: activeIdx === i ? config.primary : '#e5e7eb',
+                  color: activeIdx === i ? config.primaryText : '#374151',
                   fontFamily: 'inherit',
                   border: 'none',
                   cursor: 'pointer',
-                }}>
+                }}
+              >
                 {tabLabel(q, i)}
               </button>
             ))}
@@ -208,7 +300,9 @@ export default function ReviewForm({ initial, onConfirm, onBack, isGenerating }:
         <form id="review-form" onSubmit={handleSubmit}>
           <QuoteEditor
             q={quotes[activeIdx]}
-            onChange={(updated) => setQuotes(quotes.map((q, i) => i === activeIdx ? updated : q))}
+            onChange={(updated) =>
+              setQuotes(quotes.map((q, i) => (i === activeIdx ? updated : q)))
+            }
           />
         </form>
       </div>

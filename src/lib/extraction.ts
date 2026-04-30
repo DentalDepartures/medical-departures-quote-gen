@@ -11,23 +11,19 @@ Return a JSON ARRAY where each element matches this schema (null for missing fie
 [
   {
     "patientName": string | null,
-    "quoteDate": string | null,
+    "quoteDate": null,
     "treatmentName": string | null,
     "clinicName": string | null,
     "clinicLocation": string | null,
     "clinicProfileUrl": string | null,
     "price": number | null,
     "currency": string,
-    "reducedFrom": number | null,
-    "savings": number | null,
     "inclusions": string[],
     "exclusions": string[],
     "surgeonName": string | null,
     "surgeonTitle": string | null,
     "accreditations": string | null,
-    "importantNotes": string | null,
-    "consultationRequired": boolean | null,
-    "suggestedConsultTime": string | null
+    "importantNotes": string | null
   }
 ]
 
@@ -35,13 +31,13 @@ Rules:
 - Return ONLY the JSON array, zero other text
 - Each procedure with its own price, inclusions, exclusions gets its own object
 - Shared fields (patientName, clinicName, surgeonName, etc.) are duplicated across objects
-- prices must be plain numbers (strip commas and currency symbols)
+- price: the FINAL payable price only. If the text shows both an original price and a discounted/savings price, always use the discounted price. Strip all currency symbols and commas — plain number only
 - currency: ISO code — THB, USD, MXN, EUR, BRL, GBP, AUD, etc. Default to USD if unknown
+- quoteDate: always return null — the date is set automatically by the application
 - Handle any language (Spanish, Portuguese, Thai, French, etc.)
 - clinicLocation: "City, Country" format
-- importantNotes: combine all medical/clinical notes into one string
-- accreditations: combine all accreditation details into one string
-- If savings or reducedFrom can be inferred from context, include them`
+- importantNotes: combine all medical/clinical notes into one string, using "- " prefix per bullet point
+- accreditations: combine all accreditation details into one string`
 
 function parseJsonFromText(text: string): QuoteData[] {
   const parsed = (() => {

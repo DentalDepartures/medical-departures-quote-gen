@@ -227,90 +227,20 @@ class Builder {
     this.y = boxY + boxH + 5
   }
 
-  // ── Price banner (navy + cream two-section card) ────────────────────────────
+  // ── Price banner (navy card) ────────────────────────────────────────────────
   addPriceBanner() {
     const doc = this.doc
     const q = this.quote
     const currency = q.currency
     const fmt = (n: number) => new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(n)
 
-    const hasOriginal = q.reducedFrom != null && q.reducedFrom > 0
-    const hasSavings  = q.savings     != null && q.savings > 0
-    const hasBottom   = hasOriginal || hasSavings
-
-    const navyH  = 19
-    const creamH = 22
-    const r      = 3
+    const navyH   = 19
+    const r       = 3
     const bannerY = this.y
 
-    if (hasBottom) {
-      // 1. Full card cream base (establishes outer rounded corners)
-      fc(doc, C.cream); dc(doc, C.cream)
-      doc.roundedRect(ML, bannerY, CW, navyH + creamH, r, r, 'F')
+    fc(doc, C.navy); dc(doc, C.navy)
+    doc.roundedRect(ML, bannerY, CW, navyH, r, r, 'F')
 
-      // 2. Navy top — extends r+1 below navyH to fully cover junction artifact
-      fc(doc, C.navy); dc(doc, C.navy)
-      doc.roundedRect(ML, bannerY, CW, navyH + r + 1, r, r, 'F')
-
-      // 3. Cover navy's protruding bottom with cream (overlap by 1 to kill artifact)
-      fc(doc, C.cream); dc(doc, C.cream)
-      doc.rect(ML, bannerY + navyH - 0.5, CW, r + 1.5, 'F')
-
-      // Cream section content
-      const creamY = bannerY + navyH
-      const rightX = ML + CW - 8
-
-      if (hasOriginal && hasSavings) {
-        // Row 1: Reduced from
-        tc(doc, C.creamText)
-        doc.setFont('Montserrat', 'normal')
-        doc.setFontSize(9)
-        doc.text('Reduced from:', ML + 8, creamY + 9)
-        tc(doc, C.darkText)
-        doc.setFont('Montserrat', 'bold')
-        doc.setFontSize(10)
-        doc.text(`${fmt(q.reducedFrom!)} ${currency}`, rightX, creamY + 9, { align: 'right' })
-
-        // Thin divider
-        dc(doc, C.creamLine)
-        doc.setLineWidth(0.2)
-        doc.line(ML + 8, creamY + 12.5, ML + CW - 8, creamY + 12.5)
-
-        // Row 2: Savings
-        tc(doc, C.creamText)
-        doc.setFont('Montserrat', 'normal')
-        doc.setFontSize(9)
-        doc.text('Savings:', ML + 8, creamY + 18)
-        tc(doc, C.green)
-        doc.setFont('Montserrat', 'bold')
-        doc.setFontSize(10)
-        doc.text(`${fmt(q.savings!)} ${currency}`, rightX, creamY + 18, { align: 'right' })
-      } else if (hasOriginal) {
-        tc(doc, C.creamText)
-        doc.setFont('Montserrat', 'normal')
-        doc.setFontSize(9)
-        doc.text('Reduced from:', ML + 8, creamY + 12)
-        tc(doc, C.darkText)
-        doc.setFont('Montserrat', 'bold')
-        doc.setFontSize(10)
-        doc.text(`${fmt(q.reducedFrom!)} ${currency}`, rightX, creamY + 12, { align: 'right' })
-      } else {
-        tc(doc, C.creamText)
-        doc.setFont('Montserrat', 'normal')
-        doc.setFontSize(9)
-        doc.text('Savings:', ML + 8, creamY + 12)
-        tc(doc, C.green)
-        doc.setFont('Montserrat', 'bold')
-        doc.setFontSize(10)
-        doc.text(`${fmt(q.savings!)} ${currency}`, rightX, creamY + 12, { align: 'right' })
-      }
-    } else {
-      // Navy only — all corners rounded
-      fc(doc, C.navy); dc(doc, C.navy)
-      doc.roundedRect(ML, bannerY, CW, navyH, r, r, 'F')
-    }
-
-    // Navy section content (drawn last so it's on top)
     tc(doc, C.priceTag)
     doc.setFont('Montserrat', 'bold')
     doc.setFontSize(9)
@@ -325,7 +255,7 @@ class Builder {
       doc.text('—', ML + 8, bannerY + 15)
     }
 
-    this.y = bannerY + navyH + (hasBottom ? creamH : 0) + 5
+    this.y = bannerY + navyH + 5
   }
 
   // ── Two-column includes/excludes — auto-scales to fit on one page ──────────
@@ -590,17 +520,6 @@ export async function generateQuotePDF(quote: QuoteData, agent: AgentProfile): P
 
   b.addDoctorSection()
   b.addSection('CLINIC ACCREDITATION', quote.accreditations || null)
-
-  let consultText: string | null = null
-  if (quote.consultationRequired && quote.suggestedConsultTime) {
-    consultText = quote.suggestedConsultTime
-  } else if (quote.consultationRequired) {
-    consultText = 'Consultation required'
-  } else if (quote.suggestedConsultTime) {
-    consultText = quote.suggestedConsultTime
-  }
-  b.addSection('CONSULTATION', consultText)
-
   b.addBulletSection('IMPORTANT NOTES', quote.importantNotes || null)
 
   b.addAgentBox(agent)
