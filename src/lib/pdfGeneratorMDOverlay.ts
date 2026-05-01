@@ -7,7 +7,6 @@ const MD_RED  = rgb(229 / 255, 27 / 255, 36 / 255)  // #e51b24 — procedure nam
 const WHITE   = rgb(1, 1, 1)
 const DARK    = rgb(0.22, 0.22, 0.22)                // #383838
 const GRAY    = rgb(88 / 255, 88 / 255, 89 / 255)    // #585859 — agent subtext
-const GREEN   = rgb(0.06, 0.56, 0.16)               // inclusion checkmarks
 
 // ── Coordinate Map ────────────────────────────────────────────────────────────
 // All values in PDF points (pt). Origin = bottom-left of page.
@@ -148,11 +147,13 @@ export async function generateMDQuotePDFOverlay(
   }
 
   // Fetch template via proxy (handles CORS + Google Drive URL conversion),
-  // and fonts directly from the same origin.
-  const [templateBytes, boldBytes, regularBytes] = await Promise.all([
+  // fonts and icon PNGs directly from the same origin.
+  const [templateBytes, boldBytes, regularBytes, checkBytes, xBytes] = await Promise.all([
     fetchTemplateBytes(quote.templatePdfUrl),
     fetchBytes('/fonts/Montserrat-Bold.ttf'),
     fetchBytes('/fonts/Montserrat-Regular.ttf'),
+    fetchBytes('/check-mark.png'),
+    fetchBytes('/x-mark.png'),
   ])
 
   const pdfDoc = await PDFDocument.load(templateBytes)
@@ -160,6 +161,8 @@ export async function generateMDQuotePDFOverlay(
 
   const boldFont    = await pdfDoc.embedFont(boldBytes)
   const regularFont = await pdfDoc.embedFont(regularBytes)
+  const checkImg    = await pdfDoc.embedPng(checkBytes)
+  const xImg        = await pdfDoc.embedPng(xBytes)
 
   const pages = pdfDoc.getPages()
   const page1 = pages[0]
@@ -212,8 +215,10 @@ export async function generateMDQuotePDFOverlay(
     font: regularFont, size: c1.quoteDate.size, color: DARK,
   })
 
-  // ── Inclusions (checkmark + text, 11pt, max 30 lines) ────────────────────
+  // ── Inclusions (PNG checkmark + text, 11pt, max 30 lines) ───────────────
   // "WHAT'S INCLUDED:" heading is static in the template.
+  // Uses check-mark.png instead of ✓ Unicode — Montserrat doesn't include that glyph.
+  const iconSize = 9
   let inclY = c1.inclusions.startY
   for (const item of quote.inclusions) {
     const wrapped = wrapText(
@@ -221,9 +226,9 @@ export async function generateMDQuotePDFOverlay(
       s => regularW(s, c1.inclusions.size),
       c1.inclusions.maxWidth,
     )
-    page1.drawText('✓', {
-      x: c1.inclusions.checkX, y: inclY,
-      font: regularFont, size: c1.inclusions.size, color: GREEN,
+    page1.drawImage(checkImg, {
+      x: c1.inclusions.checkX, y: inclY - 1,
+      width: iconSize, height: iconSize,
     })
     page1.drawText(wrapped[0], {
       x: c1.inclusions.textX, y: inclY,
@@ -239,8 +244,11 @@ export async function generateMDQuotePDFOverlay(
     }
   }
 
-  // ── Exclusions (× + text, 11pt, max 7 lines) ─────────────────────────────
+  // ── Exclusions (PNG x-mark + text, 11pt, max 7 lines) ───────────────────
   // "WHAT'S NOT INCLUDED:" heading is static in the template.
+  // Icon sits just left of textX; text starts at textX (unchanged for wrapping).
+  const exclIconX = c1.exclusions.textX - 11
+  const exclTextX = c1.exclusions.textX
   let exclY = c1.exclusions.startY
   for (const item of quote.exclusions) {
     const wrapped = wrapText(
@@ -248,33 +256,43 @@ export async function generateMDQuotePDFOverlay(
       s => regularW(s, c1.exclusions.size),
       c1.exclusions.maxWidth,
     )
-    page1.drawText(`✗ ${wrapped[0]}`, {
-      x: c1.exclusions.textX, y: exclY,
+    page1.drawImage(xImg, {
+      x: exclIconX, y: exclY - 1,
+      width: iconSize, height: iconSize,
+    })
+    page1.drawText(wrapped[0], {
+      x: exclTextX, y: exclY,
       font: regularFont, size: c1.exclusions.size, color: DARK,
     })
     exclY -= c1.exclusions.lineH
     for (let i = 1; i < wrapped.length; i++) {
       page1.drawText(wrapped[i], {
-        x: c1.exclusions.textX + 10, y: exclY,
+        x: exclTextX, y: exclY,
         font: regularFont, size: c1.exclusions.size, color: DARK,
       })
       exclY -= c1.exclusions.lineH
     }
   }
 
-  // ── Important Notes (10pt, max 27 lines) ─────────────────────────────────
+  // ── Important Notes (bullet points, 10pt, max 27 lines) ─────────────────
   // "IMPORTANT NOTES:" heading is static in the template.
+  // Each line prefixed with "• ". Continuation lines indented to align with text after bullet.
   let notesY = c1.notes.startY
+  const bulletPrefix = '• '
+  const bulletIndent = regularFont.widthOfTextAtSize(bulletPrefix, c1.notes.size)
   const noteLines = (quote.importantNotes || '').split('\n').filter(l => l.trim())
   for (const noteLine of noteLines) {
-    const wrapped = wrapText(
-      noteLine,
-      s => regularW(s, c1.notes.size),
-      c1.notes.maxWidth,
-    )
-    for (const wl of wrapped) {
-      page1.drawText(wl, {
-        x: c1.notes.textX, y: notesY,
+    const cleanLine = noteLine.replace(/^[-•]\s*/, '')
+    const firstLineMaxWidth = c1.notes.maxWidth - bulletIndent
+    const wrapped = wrapText(cleanLine, s => regularW(s, c1.notes.size), firstLineMaxWidth)
+    page1.drawText(bulletPrefix + (wrapped[0] ?? ''), {
+      x: c1.notes.textX, y: notesY,
+      font: regularFont, size: c1.notes.size, color: DARK,
+    })
+    notesY -= c1.notes.lineH
+    for (let i = 1; i < wrapped.length; i++) {
+      page1.drawText(wrapped[i], {
+        x: c1.notes.textX + bulletIndent, y: notesY,
         font: regularFont, size: c1.notes.size, color: DARK,
       })
       notesY -= c1.notes.lineH
