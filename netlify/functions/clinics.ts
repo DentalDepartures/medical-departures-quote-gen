@@ -5,7 +5,7 @@
 import { createSign } from 'crypto'
 
 const SPREADSHEET_ID = process.env.CLINIC_APP_SPREADSHEET_ID ?? ''
-const RANGE = 'Clinic App!A:M'
+const RANGE = 'Clinic App!A:N'
 
 type NetlifyEvent = { httpMethod: string }
 type NetlifyResponse = { statusCode: number; headers: Record<string, string>; body: string }
@@ -84,10 +84,10 @@ export const handler = async (event: NetlifyEvent): Promise<NetlifyResponse> => 
     const data = (await sheetsRes.json()) as { values?: string[][] }
     const [, ...dataRows] = data.values ?? [] // skip header row
 
-    // Column index mapping (A=0 ... M=12):
+    // Column index mapping (A=0 ... N=13):
     // 0:brand 1:clinic_name 2:location 3:google_folder 4:clinic_profile_url
     // 5:clinic_image_1 6:clinic_image_2 7:surgeon_name 8:surgeon_title
-    // 9:accreditations 10:doctor_picture_url 11:status 12:notes
+    // 9:accreditations 10:doctor_picture_url 11:status 12:notes 13:template_pdf_url
     const rows = dataRows
       .filter((r) => (r[11] ?? '').trim().toLowerCase() === 'active')
       .map((r) => ({
@@ -104,6 +104,7 @@ export const handler = async (event: NetlifyEvent): Promise<NetlifyResponse> => 
         doctor_picture_url: (r[10] ?? '').trim(),
         status: 'active' as const,
         notes: (r[12] ?? '').trim(),
+        template_pdf_url: (r[13] ?? '').trim(),
       }))
       .filter((r) => r.clinic_name && r.brand) // skip incomplete rows
 
