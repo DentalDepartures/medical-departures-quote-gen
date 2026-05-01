@@ -53,11 +53,11 @@ export const MD_COORD = {
     },
     // "IMPORTANT NOTES:" heading is static in template
     notes: {
-      textX:    321.1,
+      textX:    307.2,
       startY:   351.7,
-      lineH:    12,
-      maxWidth: 249,
-      size:     10,
+      lineH:    13,
+      maxWidth: 248,
+      size:     11,
     },
   },
   page2: {
