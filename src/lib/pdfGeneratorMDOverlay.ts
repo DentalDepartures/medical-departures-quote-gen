@@ -154,8 +154,8 @@ export async function generateMDQuotePDFOverlay(
     fetchTemplateBytes(quote.templatePdfUrl),
     fetchBytes('/fonts/Montserrat-Bold.ttf'),
     fetchBytes('/fonts/Montserrat-Regular.ttf'),
-    fetchBytes('/check-mark.png'),
-    fetchBytes('/x-mark.png'),
+    fetchBytes('/check.png'),
+    fetchBytes('/X.png'),
   ])
 
   const pdfDoc = await PDFDocument.load(templateBytes)
