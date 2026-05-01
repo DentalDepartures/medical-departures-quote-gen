@@ -2,7 +2,7 @@
 // Runs on Deno (Cloudflare Workers-like) — no Node.js crypto module available.
 // Environment variables: GOOGLE_SERVICE_ACCOUNT_JSON, CLINIC_APP_SPREADSHEET_ID
 
-const RANGE = 'Clinic App!A:N'
+const RANGE = 'Clinic App!A:J'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -95,27 +95,26 @@ export default async (request: Request) => {
     const data = await sheetsRes.json() as { values?: string[][] }
     const [, ...dataRows] = data.values ?? []
 
-    // Column index mapping (A=0 … N=13):
+    // Column index mapping (A=0 … J=9) — matches current sheet structure:
     // 0:brand 1:clinic_name 2:location 3:google_folder 4:clinic_profile_url
-    // 5:clinic_image_1 6:clinic_image_2 7:surgeon_name 8:surgeon_title
-    // 9:accreditations 10:doctor_picture_url 11:status 12:notes 13:template_pdf_url
+    // 5:surgeon_name 6:accreditations 7:status 8:notes 9:template_pdf_url
     const rows = dataRows
-      .filter((r) => (r[11] ?? '').trim().toLowerCase() === 'active')
+      .filter((r) => (r[7] ?? '').trim().toLowerCase() === 'active')
       .map((r) => ({
         brand: (r[0] ?? '').trim() as 'DD' | 'MD',
         clinic_name: (r[1] ?? '').trim(),
         location: (r[2] ?? '').trim(),
         google_folder: (r[3] ?? '').trim(),
         clinic_profile_url: (r[4] ?? '').trim(),
-        clinic_image_1: (r[5] ?? '').trim(),
-        clinic_image_2: (r[6] ?? '').trim(),
-        surgeon_name: (r[7] ?? '').trim(),
-        surgeon_title: (r[8] ?? '').trim(),
-        accreditations: (r[9] ?? '').trim(),
-        doctor_picture_url: (r[10] ?? '').trim(),
+        clinic_image_1: '',
+        clinic_image_2: '',
+        surgeon_name: (r[5] ?? '').trim(),
+        surgeon_title: '',
+        accreditations: (r[6] ?? '').trim(),
+        doctor_picture_url: '',
         status: 'active' as const,
-        notes: (r[12] ?? '').trim(),
-        template_pdf_url: (r[13] ?? '').trim(),
+        notes: (r[8] ?? '').trim(),
+        template_pdf_url: (r[9] ?? '').trim(),
       }))
       .filter((r) => r.clinic_name && r.brand)
 
