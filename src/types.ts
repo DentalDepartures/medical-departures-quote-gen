@@ -35,6 +35,9 @@ export interface QuoteData {
 
   // Notes
   importantNotes: string | null
+
+  // PDF generation — template URL from clinic row (not editable)
+  templatePdfUrl: string | null
 }
 
 export interface ClinicRow {
@@ -51,6 +54,7 @@ export interface ClinicRow {
   doctor_picture_url: string
   status: 'active' | 'inactive' | 'error'
   notes: string
+  template_pdf_url: string
 }
 
 export interface SelectedClinic {
@@ -60,6 +64,7 @@ export interface SelectedClinic {
   clinic_profile_url: string
   clinic_image_1: string
   clinic_image_2: string
+  template_pdf_url: string
 }
 
 export interface SelectedDoctor {
@@ -67,6 +72,7 @@ export interface SelectedDoctor {
   surgeon_title: string
   accreditations: string
   doctor_picture_url: string
+  template_pdf_url: string
 }
 
 export type AppStep = 'paste' | 'review' | 'done'

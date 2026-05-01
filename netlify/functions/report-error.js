@@ -50,7 +50,7 @@ exports.handler = async (event) => {
           <hr style="margin:20px 0;border:none;border-top:1px solid #e5e7eb">
           <p style="color:#6b7280;font-size:12px;margin:0">
             Sent automatically by the Medical Departures Quote Generator.<br>
-            Site: <a href="https://medical-departures-quote-gen.netlify.app">medical-departures-quote-gen.netlify.app</a>
+            Site: <a href="https://dental-medical-departures-quote-gen.netlify.app">dental-medical-departures-quote-gen.netlify.app</a>
           </p>
         </div>
       </div>

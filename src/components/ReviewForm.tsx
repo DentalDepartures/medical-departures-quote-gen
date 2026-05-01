@@ -214,13 +214,39 @@ function QuoteEditor({ q, onChange }: { q: QuoteData; onChange: (q: QuoteData) =
   )
 }
 
+function countLines(text: string): number {
+  return text.split('\n').filter(l => l.trim().length > 0).length
+}
+
 export default function ReviewForm({ initial, onConfirm, onBack, isGenerating }: Props) {
   const { config } = useBrand()
   const [quotes, setQuotes] = useState<QuoteData[]>(initial)
   const [activeIdx, setActiveIdx] = useState(0)
+  const [limitErrors, setLimitErrors] = useState<string[]>([])
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+
+    const errors: string[] = []
+    quotes.forEach((q, i) => {
+      const prefix = quotes.length > 1 ? `Procedure ${i + 1}: ` : ''
+      const inclLines = q.inclusions.filter(s => s.trim()).length
+      const exclLines = q.exclusions.filter(s => s.trim()).length
+      const notesLines = countLines(q.importantNotes ?? '')
+      if (inclLines > LIMITS.inclusions)
+        errors.push(`${prefix}Inclusions cannot exceed 30 lines.`)
+      if (exclLines > LIMITS.exclusions)
+        errors.push(`${prefix}Exclusions cannot exceed 7 lines.`)
+      if (notesLines > LIMITS.notes)
+        errors.push(`${prefix}Important Notes cannot exceed 27 lines.`)
+    })
+
+    if (errors.length > 0) {
+      setLimitErrors(errors)
+      return
+    }
+
+    setLimitErrors([])
     onConfirm(quotes)
   }
 
@@ -294,6 +320,24 @@ export default function ReviewForm({ initial, onConfirm, onBack, isGenerating }:
                 {tabLabel(q, i)}
               </button>
             ))}
+          </div>
+        )}
+
+        {limitErrors.length > 0 && (
+          <div
+            className="rounded-xl mb-5 px-5 py-4"
+            style={{ background: '#fff5f5', border: '1.5px solid #fca5a5' }}
+          >
+            <p className="text-sm font-bold mb-2" style={{ color: '#dc2626' }}>
+              Please fix the following before generating:
+            </p>
+            <ul className="space-y-1">
+              {limitErrors.map((err, i) => (
+                <li key={i} className="text-sm" style={{ color: '#dc2626' }}>
+                  • {err}
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 

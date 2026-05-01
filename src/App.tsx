@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react'
 import type { AgentProfile, QuoteData, ClinicRow, SelectedClinic, SelectedDoctor } from './types'
 import { extractQuoteData } from './lib/extraction'
-import { generateDDQuotePDF } from './lib/pdfGeneratorDD'
-import { generateMDQuotePDF } from './lib/pdfGeneratorMD'
+import { generateQuotePDF } from './lib/pdfService'
 import { BrandProvider, useBrand } from './contexts/BrandContext'
 import { fetchClinicRows } from './lib/clinicsApi'
 
@@ -79,6 +78,7 @@ function AppContent() {
           clinicImage1: null,
           clinicImage2: null,
           doctorPictureUrl: null,
+          templatePdfUrl: null,
           // override with clinic selection
           ...(clinic
             ? {
@@ -87,15 +87,17 @@ function AppContent() {
                 clinicProfileUrl: clinic.clinic_profile_url,
                 clinicImage1: clinic.clinic_image_1 || null,
                 clinicImage2: clinic.clinic_image_2 || null,
+                templatePdfUrl: clinic.template_pdf_url || null,
               }
             : {}),
-          // override with doctor selection
+          // override with doctor selection — template_pdf_url is per clinic+doctor row
           ...(doctor
             ? {
                 surgeonName: doctor.surgeon_name,
                 surgeonTitle: doctor.surgeon_title,
                 accreditations: doctor.accreditations,
                 doctorPictureUrl: doctor.doctor_picture_url,
+                templatePdfUrl: doctor.template_pdf_url || null,
               }
             : {}),
         })),
@@ -137,9 +139,8 @@ function AppContent() {
     if (!profile) return
     setIsGenerating(true)
     try {
-      const generator = brand === 'DD' ? generateDDQuotePDF : generateMDQuotePDF
       for (const quote of data) {
-        await generator(quote, profile)
+        await generateQuotePDF(quote, profile)
       }
       setQuotes(data)
       setStep('done')

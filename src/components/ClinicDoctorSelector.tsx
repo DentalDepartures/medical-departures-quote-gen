@@ -16,6 +16,7 @@ interface ClinicOption {
   clinic_profile_url: string
   clinic_image_1: string
   clinic_image_2: string
+  template_pdf_url: string
 }
 
 const key = (name: string) => name.trim().toLowerCase()
@@ -44,6 +45,7 @@ export default function ClinicDoctorSelector({
         clinic_profile_url: row.clinic_profile_url,
         clinic_image_1: row.clinic_image_1,
         clinic_image_2: row.clinic_image_2,
+        template_pdf_url: row.template_pdf_url,
       })
     }
   }
@@ -68,6 +70,7 @@ export default function ClinicDoctorSelector({
           surgeon_title: row.surgeon_title,
           accreditations: row.accreditations,
           doctor_picture_url: row.doctor_picture_url,
+          template_pdf_url: row.template_pdf_url,
         }
       : null
     onSelectionChange(clinic, doctor)
