@@ -50,11 +50,15 @@ function AppContent() {
   // Clinic rows — fetched live from Google Sheet via Netlify function
   const [clinicRows, setClinicRows] = useState<ClinicRow[]>([])
   const [clinicsLoading, setClinicsLoading] = useState(true)
+  const [clinicsError, setClinicsError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchClinicRows()
       .then(setClinicRows)
-      .catch(console.error)
+      .catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err)
+        setClinicsError(msg)
+      })
       .finally(() => setClinicsLoading(false))
   }, [])
 
@@ -175,6 +179,7 @@ function AppContent() {
         <PasteInput
           rows={brandRows}
           clinicsLoading={clinicsLoading}
+          clinicsError={clinicsError}
           onGenerate={handleGenerate}
           isLoading={isLoading}
           error={extractError}

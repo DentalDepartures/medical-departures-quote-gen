@@ -8,6 +8,7 @@ import ClinicDoctorSelector from './ClinicDoctorSelector'
 interface Props {
   rows: ClinicRow[]
   clinicsLoading: boolean
+  clinicsError?: string | null
   onGenerate: (
     rawText: string,
     profile: AgentProfile,
@@ -27,7 +28,7 @@ interface FieldErrors {
   text?: string
 }
 
-export default function PasteInput({ rows, clinicsLoading, onGenerate, isLoading, error }: Props) {
+export default function PasteInput({ rows, clinicsLoading, clinicsError, onGenerate, isLoading, error }: Props) {
   const { config } = useBrand()
   const saved = getProfile()
   const [name, setName] = useState(saved?.name ?? '')
@@ -221,6 +222,15 @@ export default function PasteInput({ rows, clinicsLoading, onGenerate, isLoading
           >
             Select Clinic & Doctor
           </div>
+
+          {clinicsError && (
+            <div
+              className="text-xs rounded-lg px-3 py-2 mb-3"
+              style={{ background: '#fff0f0', border: '1px solid #fca5a5', color: '#b91c1c' }}
+            >
+              ⚠ Could not load clinics: {clinicsError}
+            </div>
+          )}
 
           <ClinicDoctorSelector
             rows={rows}
