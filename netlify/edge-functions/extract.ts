@@ -1,7 +1,5 @@
-// Netlify serverless function — identical logic to api/extract.ts (Vercel version).
-// Netlify routes: POST /.netlify/functions/extract
-// netlify.toml rewrites /api/extract → here, so the frontend is unchanged.
-// Set ANTHROPIC_API_KEY in Netlify dashboard → Site configuration → Environment variables.
+// Edge Function — Anthropic quote extraction, converted from Lambda to Deno.
+// Environment variables: ANTHROPIC_API_KEY, ANTHROPIC_MODEL (optional)
 
 const SYSTEM_PROMPT = `You are a medical/dental tourism quote extraction specialist.
 Extract structured data from the provided quote text and return ONLY valid JSON.
@@ -38,60 +36,39 @@ Rules:
 - accreditations: combine all accreditation details into one string
 - If savings or reducedFrom can be inferred from context, include them`
 
-type NetlifyEvent = {
-  httpMethod: string
-  body: string | null
-}
-
-type NetlifyResponse = {
-  statusCode: number
-  headers: Record<string, string>
-  body: string
-}
-
-const CORS_HEADERS = {
+const CORS = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
 }
 
-export const handler = async (event: NetlifyEvent): Promise<NetlifyResponse> => {
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 204, headers: CORS_HEADERS, body: '' }
+export default async (request: Request) => {
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: CORS })
   }
 
-  if (event.httpMethod !== 'POST') {
-    return {
-      statusCode: 405,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({ error: 'Method not allowed' }),
-    }
+  if (request.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: CORS })
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY
+  const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
   if (!apiKey) {
-    return {
-      statusCode: 500,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({ error: 'ANTHROPIC_API_KEY not configured' }),
-    }
+    return new Response(JSON.stringify({ error: 'ANTHROPIC_API_KEY not configured' }), {
+      status: 500, headers: CORS,
+    })
   }
 
   let rawText: string
   try {
-    const body = JSON.parse(event.body ?? '{}') as { rawText?: unknown }
-    if (typeof body.rawText !== 'string' || !body.rawText) {
-      throw new Error('rawText missing')
-    }
+    const body = await request.json() as { rawText?: unknown }
+    if (typeof body.rawText !== 'string' || !body.rawText) throw new Error('rawText missing')
     rawText = body.rawText
   } catch {
-    return {
-      statusCode: 400,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({ error: 'Invalid request body — rawText required' }),
-    }
+    return new Response(JSON.stringify({ error: 'Invalid request body — rawText required' }), {
+      status: 400, headers: CORS,
+    })
   }
 
-  const model = process.env.ANTHROPIC_MODEL || 'claude-opus-4-5'
+  const model = Deno.env.get('ANTHROPIC_MODEL') || 'claude-opus-4-5'
 
   try {
     const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
@@ -105,22 +82,16 @@ export const handler = async (event: NetlifyEvent): Promise<NetlifyResponse> => 
         model,
         max_tokens: 2048,
         system: SYSTEM_PROMPT,
-        messages: [
-          {
-            role: 'user',
-            content: `Extract the quote data from this text:\n\n${rawText}`,
-          },
-        ],
+        messages: [{ role: 'user', content: `Extract the quote data from this text:\n\n${rawText}` }],
       }),
     })
 
     if (!anthropicRes.ok) {
       const errText = await anthropicRes.text()
-      return {
-        statusCode: 500,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({ error: `Anthropic error ${anthropicRes.status}: ${errText}` }),
-      }
+      return new Response(
+        JSON.stringify({ error: `Anthropic error ${anthropicRes.status}: ${errText}` }),
+        { status: 500, headers: CORS },
+      )
     }
 
     const result = await anthropicRes.json() as { content: { text: string }[] }
@@ -135,16 +106,8 @@ export const handler = async (event: NetlifyEvent): Promise<NetlifyResponse> => 
       parsed = JSON.parse(match[0])
     }
 
-    return {
-      statusCode: 200,
-      headers: CORS_HEADERS,
-      body: JSON.stringify(parsed),
-    }
+    return new Response(JSON.stringify(parsed), { status: 200, headers: CORS })
   } catch (err) {
-    return {
-      statusCode: 500,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({ error: String(err) }),
-    }
+    return new Response(JSON.stringify({ error: String(err) }), { status: 500, headers: CORS })
   }
 }

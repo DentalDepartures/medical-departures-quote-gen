@@ -1,30 +1,33 @@
+// Edge Function — sends error notification emails via Resend.
+// Environment variables: RESEND_API_KEY
+
 const YANA_EMAIL = 'yana.arkhipova@dentaldepartures.com'
 const FROM_EMAIL = 'MD Quote Generator <onboarding@resend.dev>'
 
-const ERROR_LABELS = {
-  extraction:  'Quote Extraction Failed',
-  pdf:         'PDF Generation Failed',
-  api_key:     'Anthropic API Key Issue',
-  network:     'Network / Connectivity Error',
-  unknown:     'Unknown Error',
+const ERROR_LABELS: Record<string, string> = {
+  extraction: 'Quote Extraction Failed',
+  pdf:        'PDF Generation Failed',
+  api_key:    'Anthropic API Key Issue',
+  network:    'Network / Connectivity Error',
+  unknown:    'Unknown Error',
 }
 
-exports.handler = async (event) => {
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: 'Method Not Allowed' }
+export default async (request: Request) => {
+  if (request.method !== 'POST') {
+    return new Response('Method Not Allowed', { status: 405 })
   }
 
   try {
     const { errorType, message, step, patientName, agentName, agentEmail, timestamp } =
-      JSON.parse(event.body || '{}')
+      await request.json() as Record<string, string>
 
-    const apiKey = process.env.RESEND_API_KEY
+    const apiKey = Deno.env.get('RESEND_API_KEY')
     if (!apiKey) {
       console.error('[report-error] RESEND_API_KEY not set — skipping email')
-      return { statusCode: 200, body: 'ok' }
+      return new Response('ok', { status: 200 })
     }
 
-    const label = ERROR_LABELS[errorType] || ERROR_LABELS.unknown
+    const label = ERROR_LABELS[errorType] ?? ERROR_LABELS.unknown
     const time  = timestamp || new Date().toISOString()
 
     const html = `
@@ -53,31 +56,19 @@ exports.handler = async (event) => {
             Site: <a href="https://dental-medical-departures-quote-gen.netlify.app">dental-medical-departures-quote-gen.netlify.app</a>
           </p>
         </div>
-      </div>
-    `
+      </div>`
 
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: FROM_EMAIL,
-        to: YANA_EMAIL,
-        subject: `[MD Quote Gen] ${label}`,
-        html,
-      }),
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: FROM_EMAIL, to: YANA_EMAIL, subject: `[MD Quote Gen] ${label}`, html }),
     })
 
-    if (!res.ok) {
-      console.error('[report-error] Resend API error:', await res.text())
-    }
+    if (!res.ok) console.error('[report-error] Resend API error:', await res.text())
 
-    return { statusCode: 200, body: 'ok' }
+    return new Response('ok', { status: 200 })
   } catch (err) {
-    // Never let error reporting itself break the app
     console.error('[report-error] Failed:', String(err))
-    return { statusCode: 200, body: 'ok' }
+    return new Response('ok', { status: 200 })
   }
 }

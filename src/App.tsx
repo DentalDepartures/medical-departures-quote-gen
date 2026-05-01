@@ -19,7 +19,7 @@ async function reportError(params: {
   agentEmail?: string | null
 }) {
   try {
-    await fetch('/.netlify/functions/report-error', {
+    await fetch('/api/report-error', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...params, timestamp: new Date().toISOString() }),

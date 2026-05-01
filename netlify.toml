@@ -10,35 +10,24 @@
   targetPort = 3000
   port = 8888
 
-# Rewrite /api/* → Netlify functions
-[[redirects]]
-  from = "/api/extract"
-  to = "/.netlify/functions/extract"
-  status = 200
+# All API routes served by Edge Functions (Deno/Cloudflare Workers).
+# Edge Functions have no AWS Lambda 4KB env-var limit, so GOOGLE_SERVICE_ACCOUNT_JSON fits.
 
-[[redirects]]
-  from = "/api/clinics"
-  to = "/.netlify/functions/clinics"
-  status = 200
+[[edge_functions]]
+  function = "extract"
+  path = "/api/extract"
 
-[[redirects]]
-  from = "/api/generate-pdf"
-  to = "/.netlify/functions/generate-pdf"
-  status = 200
-
-[[redirects]]
-  from = "/api/upload-drive"
-  to = "/.netlify/functions/upload-drive"
-  status = 200
-
-[[redirects]]
-  from = "/api/log-quote"
-  to = "/.netlify/functions/log-quote"
-  status = 200
+[[edge_functions]]
+  function = "clinics"
+  path = "/api/clinics"
 
 [[edge_functions]]
   function = "fetch-template"
   path = "/api/fetch-template"
+
+[[edge_functions]]
+  function = "report-error"
+  path = "/api/report-error"
 
 # SPA fallback — all unmatched routes serve index.html
 [[redirects]]
