@@ -128,10 +128,6 @@ function QuoteEditor({ q, onChange }: { q: QuoteData; onChange: (q: QuoteData) =
           <ReadOnlyField label="Location" value={q.clinicLocation} />
         </div>
         <ReadOnlyField label="Clinic Profile URL" value={q.clinicProfileUrl} />
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <ReadOnlyField label="Clinic Image 1" value={q.clinicImage1} />
-          <ReadOnlyField label="Clinic Image 2" value={q.clinicImage2} />
-        </div>
       </Section>
 
       {/* Pricing */}
@@ -187,12 +183,8 @@ function QuoteEditor({ q, onChange }: { q: QuoteData; onChange: (q: QuoteData) =
 
       {/* Doctor (all non-editable) */}
       <Section title="Surgeon & Accreditation">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <ReadOnlyField label="Surgeon Name" value={q.surgeonName} />
-          <ReadOnlyField label="Surgeon Title" value={q.surgeonTitle} />
-        </div>
+        <ReadOnlyField label="Surgeon Name" value={q.surgeonName} />
         <ReadOnlyField label="Accreditations" value={q.accreditations} />
-        <ReadOnlyField label="Doctor Picture URL" value={q.doctorPictureUrl} />
       </Section>
 
       {/* Important Notes */}

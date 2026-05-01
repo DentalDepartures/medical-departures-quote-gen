@@ -349,7 +349,7 @@ class Builder {
   // ── Doctor section (page 2) ────────────────────────────────────────────────
   addDoctorSection() {
     const q = this.quote
-    if (!q.surgeonName && !q.surgeonTitle) return
+    if (!q.surgeonName) return
 
     const doc = this.doc
     this.need(24)
@@ -366,14 +366,6 @@ class Builder {
       doc.setFontSize(11)
       doc.text(q.surgeonName, ML, this.y)
       this.y += 6
-    }
-
-    if (q.surgeonTitle) {
-      tc(doc, C.gray)
-      doc.setFont('Montserrat', 'normal')
-      doc.setFontSize(9.5)
-      doc.text(q.surgeonTitle, ML, this.y)
-      this.y += 11
     }
   }
 

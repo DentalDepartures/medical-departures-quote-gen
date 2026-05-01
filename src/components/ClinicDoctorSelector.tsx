@@ -14,8 +14,6 @@ interface ClinicOption {
   location: string
   google_folder: string
   clinic_profile_url: string
-  clinic_image_1: string
-  clinic_image_2: string
   template_pdf_url: string
 }
 
@@ -43,8 +41,6 @@ export default function ClinicDoctorSelector({
         location: row.location,
         google_folder: row.google_folder,
         clinic_profile_url: row.clinic_profile_url,
-        clinic_image_1: row.clinic_image_1,
-        clinic_image_2: row.clinic_image_2,
         template_pdf_url: row.template_pdf_url,
       })
     }
@@ -67,9 +63,7 @@ export default function ClinicDoctorSelector({
     const doctor: SelectedDoctor | null = row
       ? {
           surgeon_name: row.surgeon_name,
-          surgeon_title: row.surgeon_title,
           accreditations: row.accreditations,
-          doctor_picture_url: row.doctor_picture_url,
           template_pdf_url: row.template_pdf_url,
         }
       : null
@@ -146,7 +140,6 @@ export default function ClinicDoctorSelector({
           {doctors.map((d, i) => (
             <option key={i} value={String(i)}>
               {d.surgeon_name}
-              {d.surgeon_title ? ` — ${d.surgeon_title}` : ''}
             </option>
           ))}
         </select>

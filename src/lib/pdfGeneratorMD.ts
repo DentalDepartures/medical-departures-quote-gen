@@ -20,20 +20,6 @@ async function loadRequired(url: string): Promise<string> {
   })
 }
 
-async function tryLoadImage(url: string | null | undefined): Promise<string | null> {
-  if (!url) return null
-  try {
-    const blob = await fetch(url).then((r) => r.blob())
-    return new Promise((resolve) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve(reader.result as string)
-      reader.onerror = () => resolve(null)
-      reader.readAsDataURL(blob)
-    })
-  } catch {
-    return null
-  }
-}
 
 // ── Colors ────────────────────────────────────────────────────────────────────
 type RGB = [number, number, number]
@@ -373,7 +359,7 @@ class Builder {
   // ── Page 2: doctor section ────────────────────────────────────────────────────
   addDoctorSection() {
     const q = this.quote
-    if (!q.surgeonName && !q.surgeonTitle) return
+    if (!q.surgeonName) return
     const doc = this.doc
     this.need(40)
 
@@ -403,15 +389,6 @@ class Builder {
     doc.setFontSize(11)
     doc.text(q.surgeonName || '', textX, textY)
     textY += 7
-
-    if (q.surgeonTitle) {
-      tc(doc, C.gray)
-      doc.setFont('Montserrat', 'normal')
-      doc.setFontSize(9)
-      const tl = doc.splitTextToSize(q.surgeonTitle, textW) as string[]
-      doc.text(tl, textX, textY)
-      textY += tl.length * 5.2 + 2
-    }
 
     if (q.accreditations) {
       tc(doc, C.navy)
@@ -488,9 +465,9 @@ export async function generateMDQuotePDF(quote: QuoteData, agent: AgentProfile):
       loadRequired('/md-logo.png'),
       loadRequired('/mail-icon.png'),
       loadRequired('/phone-icon.png'),
-      tryLoadImage(quote.clinicImage1),
-      tryLoadImage(quote.clinicImage2),
-      tryLoadImage(quote.doctorPictureUrl),
+      Promise.resolve(null),
+      Promise.resolve(null),
+      Promise.resolve(null),
     ])
 
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })

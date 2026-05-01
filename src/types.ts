@@ -16,8 +16,6 @@ export interface QuoteData {
   clinicName: string | null
   clinicLocation: string | null
   clinicProfileUrl: string | null
-  clinicImage1: string | null
-  clinicImage2: string | null
 
   // Pricing
   price: number | null
@@ -29,9 +27,7 @@ export interface QuoteData {
 
   // Doctor (non-editable — from doctor selection)
   surgeonName: string | null
-  surgeonTitle: string | null
   accreditations: string | null
-  doctorPictureUrl: string | null
 
   // Notes
   importantNotes: string | null
@@ -46,12 +42,8 @@ export interface ClinicRow {
   location: string
   google_folder: string
   clinic_profile_url: string
-  clinic_image_1: string
-  clinic_image_2: string
   surgeon_name: string
-  surgeon_title: string
   accreditations: string
-  doctor_picture_url: string
   status: 'active' | 'inactive' | 'error'
   notes: string
   template_pdf_url: string
@@ -62,16 +54,12 @@ export interface SelectedClinic {
   location: string
   google_folder: string
   clinic_profile_url: string
-  clinic_image_1: string
-  clinic_image_2: string
   template_pdf_url: string
 }
 
 export interface SelectedDoctor {
   surgeon_name: string
-  surgeon_title: string
   accreditations: string
-  doctor_picture_url: string
   template_pdf_url: string
 }
 

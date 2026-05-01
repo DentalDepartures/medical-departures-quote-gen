@@ -78,10 +78,6 @@ function AppContent() {
         data.map((q) => ({
           ...q,
           quoteDate: today,
-          // fields not in extraction schema — set defaults
-          clinicImage1: null,
-          clinicImage2: null,
-          doctorPictureUrl: null,
           templatePdfUrl: null,
           // override with clinic selection
           ...(clinic
@@ -89,8 +85,6 @@ function AppContent() {
                 clinicName: clinic.clinic_name,
                 clinicLocation: clinic.location,
                 clinicProfileUrl: clinic.clinic_profile_url,
-                clinicImage1: clinic.clinic_image_1 || null,
-                clinicImage2: clinic.clinic_image_2 || null,
                 templatePdfUrl: clinic.template_pdf_url || null,
               }
             : {}),
@@ -98,9 +92,7 @@ function AppContent() {
           ...(doctor
             ? {
                 surgeonName: doctor.surgeon_name,
-                surgeonTitle: doctor.surgeon_title,
                 accreditations: doctor.accreditations,
-                doctorPictureUrl: doctor.doctor_picture_url,
                 templatePdfUrl: doctor.template_pdf_url || null,
               }
             : {}),
