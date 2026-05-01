@@ -29,9 +29,9 @@ export const MD_COORD = {
     // Full price string ("50000 THB") — no static label, sits inside the red banner
     price:         { x: 47.2,  y: 610.2,       maxWidth: 285, size: 20.5 },
     // VALUE ONLY — "Patient Name:" static label already in template at x≈34.6
-    patientName:   { x: 130.1, y: 565.7,        size: 12 },
+    patientName:   { x: 130.1, y: 567.7,        size: 12 },
     // VALUE ONLY — "Quote Date:" static label already in template at x≈34.6
-    quoteDate:     { x: 130.1, y: 544.1,        size: 10 },
+    quoteDate:     { x: 130.1, y: 546.1,        size: 10 },
     // "WHAT'S INCLUDED:" heading is static in template
     inclusions: {
       checkX:    32.8,
@@ -42,11 +42,13 @@ export const MD_COORD = {
       size:      11,
     },
     // "WHAT'S NOT INCLUDED:" heading is static in template
+    // iconX aligns with the heading left edge; textX starts after the icon
     exclusions: {
-      textX:    307.2,
+      iconX:    307.2,
+      textX:    318.2,
       startY:   490.0,
       lineH:    15,
-      maxWidth: 248,
+      maxWidth: 237,
       size:     11,
     },
     // "IMPORTANT NOTES:" heading is static in template
@@ -246,9 +248,7 @@ export async function generateMDQuotePDFOverlay(
 
   // ── Exclusions (PNG x-mark + text, 11pt, max 7 lines) ───────────────────
   // "WHAT'S NOT INCLUDED:" heading is static in the template.
-  // Icon sits just left of textX; text starts at textX (unchanged for wrapping).
-  const exclIconX = c1.exclusions.textX - 11
-  const exclTextX = c1.exclusions.textX
+  // iconX aligns with heading left edge; textX starts 11pt after icon.
   let exclY = c1.exclusions.startY
   for (const item of quote.exclusions) {
     const wrapped = wrapText(
@@ -257,17 +257,17 @@ export async function generateMDQuotePDFOverlay(
       c1.exclusions.maxWidth,
     )
     page1.drawImage(xImg, {
-      x: exclIconX, y: exclY - 1,
+      x: c1.exclusions.iconX, y: exclY - 1,
       width: iconSize, height: iconSize,
     })
     page1.drawText(wrapped[0], {
-      x: exclTextX, y: exclY,
+      x: c1.exclusions.textX, y: exclY,
       font: regularFont, size: c1.exclusions.size, color: DARK,
     })
     exclY -= c1.exclusions.lineH
     for (let i = 1; i < wrapped.length; i++) {
       page1.drawText(wrapped[i], {
-        x: exclTextX, y: exclY,
+        x: c1.exclusions.textX, y: exclY,
         font: regularFont, size: c1.exclusions.size, color: DARK,
       })
       exclY -= c1.exclusions.lineH
@@ -280,7 +280,11 @@ export async function generateMDQuotePDFOverlay(
   let notesY = c1.notes.startY
   const bulletPrefix = '• '
   const bulletIndent = regularFont.widthOfTextAtSize(bulletPrefix, c1.notes.size)
-  const noteLines = (quote.importantNotes || '').split('\n').filter(l => l.trim())
+  // Split on \n; if AI returned everything on one line, also split on embedded "- " markers
+  const rawNotes = (quote.importantNotes || '').trim()
+  const noteLines = rawNotes.includes('\n')
+    ? rawNotes.split('\n').filter(l => l.trim())
+    : rawNotes.split(/(?<!\w)-\s+/).filter(l => l.trim())
   for (const noteLine of noteLines) {
     const cleanLine = noteLine.replace(/^[-•]\s*/, '')
     const firstLineMaxWidth = c1.notes.maxWidth - bulletIndent

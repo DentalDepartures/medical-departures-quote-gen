@@ -36,7 +36,7 @@ Rules:
 - quoteDate: always return null — the date is set automatically by the application
 - Handle any language (Spanish, Portuguese, Thai, French, etc.)
 - clinicLocation: "City, Country" format
-- importantNotes: combine all medical/clinical notes into one string, using "- " prefix per bullet point
+- importantNotes: each note on its own line, prefixed with "- ". Use actual newlines between notes. Example: "- Consultation required\n- Valid for 30 days\n- Prices in THB"
 - accreditations: combine all accreditation details into one string`
 
 function parseJsonFromText(text: string): QuoteData[] {
