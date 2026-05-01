@@ -36,10 +36,9 @@
   to = "/.netlify/functions/log-quote"
   status = 200
 
-[[redirects]]
-  from = "/api/fetch-template"
-  to = "/.netlify/functions/fetch-template"
-  status = 200
+[[edge_functions]]
+  function = "fetch-template"
+  path = "/api/fetch-template"
 
 # SPA fallback — all unmatched routes serve index.html
 [[redirects]]
