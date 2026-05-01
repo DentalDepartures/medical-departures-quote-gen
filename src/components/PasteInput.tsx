@@ -9,6 +9,7 @@ interface Props {
   rows: ClinicRow[]
   clinicsLoading: boolean
   clinicsError?: string | null
+  totalClinicRowsLoaded?: number
   onGenerate: (
     rawText: string,
     profile: AgentProfile,
@@ -28,7 +29,7 @@ interface FieldErrors {
   text?: string
 }
 
-export default function PasteInput({ rows, clinicsLoading, clinicsError, onGenerate, isLoading, error }: Props) {
+export default function PasteInput({ rows, clinicsLoading, clinicsError, totalClinicRowsLoaded, onGenerate, isLoading, error }: Props) {
   const { config } = useBrand()
   const saved = getProfile()
   const [name, setName] = useState(saved?.name ?? '')
@@ -229,6 +230,22 @@ export default function PasteInput({ rows, clinicsLoading, clinicsError, onGener
               style={{ background: '#fff0f0', border: '1px solid #fca5a5', color: '#b91c1c' }}
             >
               ⚠ Could not load clinics: {clinicsError}
+            </div>
+          )}
+          {!clinicsLoading && !clinicsError && rows.length === 0 && (totalClinicRowsLoaded ?? 0) > 0 && (
+            <div
+              className="text-xs rounded-lg px-3 py-2 mb-3"
+              style={{ background: '#fffbeb', border: '1px solid #fde68a', color: '#92400e' }}
+            >
+              ⚠ {totalClinicRowsLoaded} clinic row(s) loaded from sheet, but none match the current brand tab. Check that the Brand column (column A) in the sheet contains exactly "MD" or "DD".
+            </div>
+          )}
+          {!clinicsLoading && !clinicsError && (totalClinicRowsLoaded ?? 0) === 0 && (
+            <div
+              className="text-xs rounded-lg px-3 py-2 mb-3"
+              style={{ background: '#fffbeb', border: '1px solid #fde68a', color: '#92400e' }}
+            >
+              ⚠ No clinic rows returned from the sheet. Check that rows have status "active" in column L.
             </div>
           )}
 

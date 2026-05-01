@@ -170,8 +170,8 @@ function AppContent() {
     setStep('paste')
   }
 
-  // Filter clinic rows by active brand
-  const brandRows = clinicRows.filter((r) => r.brand === brand)
+  // Filter clinic rows by active brand (case-insensitive)
+  const brandRows = clinicRows.filter((r) => r.brand.trim().toUpperCase() === brand.toUpperCase())
 
   if (step === 'paste') {
     return (
@@ -180,6 +180,7 @@ function AppContent() {
           rows={brandRows}
           clinicsLoading={clinicsLoading}
           clinicsError={clinicsError}
+          totalClinicRowsLoaded={clinicRows.length}
           onGenerate={handleGenerate}
           isLoading={isLoading}
           error={extractError}
