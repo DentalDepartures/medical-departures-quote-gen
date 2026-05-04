@@ -25,7 +25,7 @@ Return a JSON ARRAY where each element matches this schema (null for missing fie
   }
 ]
 
-═══════ CORE RULES ═══════
+=== CORE RULES ===
 - Return ONLY the JSON array, zero other text
 - quoteDate: always return null
 - currency: ISO code — THB, USD, MXN, EUR, BRL, GBP, AUD, etc. Default to USD if unknown
@@ -35,14 +35,14 @@ Return a JSON ARRAY where each element matches this schema (null for missing fie
 - Do NOT invent details not in the source text
 - Shared fields (clinicName, clinicLocation, surgeonName, etc.) are duplicated across all quote objects
 
-═══════ PRICE RULES ═══════
+=== PRICE RULES ===
 - If only one price exists → price = that number, pricePrefix = null
 - If BOTH Original Price and Promotion Price exist → price = Promotion Price (number only), pricePrefix = null. Ignore original price in the price field (may mention in importantNotes if useful)
 - If the source lists SAME-ROOT options with different prices → price = lowest numeric price, pricePrefix = "Starting from"
 - price field is always a plain number (strip all currency symbols and commas) or null
 - pricePrefix field is "Starting from" or null
 
-═══════ GROUPING RULES ═══════
+=== GROUPING RULES ===
 Determine the number of quote objects based on TREATMENT ROOT:
 
 SAME ROOT → ONE quote object

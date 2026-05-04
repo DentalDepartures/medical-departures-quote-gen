@@ -55,9 +55,9 @@ export const MD_COORD = {
     notes: {
       textX:    307.2,
       startY:   351.7,
-      lineH:    13,
+      lineH:    12,
       maxWidth: 248,
-      size:     11,
+      size:     10,
     },
   },
   page2: {
@@ -209,7 +209,7 @@ export async function generateMDQuotePDFOverlay(
   const procText = quote.treatmentName || ''
   // bottomY: safe boundary just above the red price banner (price baseline ~610, box top ~638)
   const { size: procSize, lines: procLines, lineH: procLineH } =
-    fitProcedureName(procText, boldW, c1.procedureName, 638, c1.procedureName.startY)
+    fitProcedureName(procText, boldW, c1.procedureName, 668, c1.procedureName.startY)
 
   let procY = c1.procedureName.startY
   for (const line of procLines) {
@@ -310,7 +310,8 @@ export async function generateMDQuotePDFOverlay(
     ? rawNotes.split('\n').filter(l => l.trim())
     : rawNotes.split(/(?<!\w)-\s+/).filter(l => l.trim())
   for (const noteLine of noteLines) {
-    const cleanLine = noteLine.replace(/^[-•]\s*/, '')
+    if (notesY < 45) break
+    const cleanLine = noteLine.replace(/^\s*[-•]\s*/, '')
     const firstLineMaxWidth = c1.notes.maxWidth - bulletIndent
     const wrapped = wrapText(cleanLine, s => regularW(s, c1.notes.size), firstLineMaxWidth)
     page1.drawText(bulletPrefix + (wrapped[0] ?? ''), {
@@ -319,6 +320,7 @@ export async function generateMDQuotePDFOverlay(
     })
     notesY -= c1.notes.lineH
     for (let i = 1; i < wrapped.length; i++) {
+      if (notesY < 45) break
       page1.drawText(wrapped[i], {
         x: c1.notes.textX + bulletIndent, y: notesY,
         font: regularFont, size: c1.notes.size, color: DARK,
@@ -335,7 +337,7 @@ export async function generateMDQuotePDFOverlay(
 
   // ── Procedure Name page 2 (same fit logic as page 1) ─────────────────────────
   const { size: proc2Size, lines: proc2Lines, lineH: proc2LineH } =
-    fitProcedureName(procText, boldW, c2.procedureName, 638, c2.procedureName.startY)
+    fitProcedureName(procText, boldW, c2.procedureName, 668, c2.procedureName.startY)
   let procY2 = c2.procedureName.startY
   for (const line of proc2Lines) {
     page2.drawText(line, {

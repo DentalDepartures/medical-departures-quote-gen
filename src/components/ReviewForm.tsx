@@ -11,7 +11,7 @@ interface Props {
 
 const CURRENCIES = ['THB', 'USD', 'MXN', 'EUR', 'BRL', 'GBP', 'AUD', 'CAD', 'SGD', 'HKD']
 
-const LIMITS = { inclusions: 30, exclusions: 7, notes: 27 }
+const LIMITS = { inclusions: 30, exclusions: 7, notes: 23 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -238,7 +238,7 @@ export default function ReviewForm({ initial, onConfirm, onBack, isGenerating }:
       if (exclLines > LIMITS.exclusions)
         errors.push(`${prefix}Exclusions cannot exceed 7 lines.`)
       if (notesLines > LIMITS.notes)
-        errors.push(`${prefix}Important Notes cannot exceed 27 lines.`)
+        errors.push(`${prefix}Important Notes cannot exceed 23 lines.`)
     })
 
     if (errors.length > 0) {
