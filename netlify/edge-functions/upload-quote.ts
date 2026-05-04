@@ -5,7 +5,7 @@
 declare const Deno: { env: { get(key: string): string | undefined } }
 
 const TRACKER_SPREADSHEET_ID = '13XkySIivS9DltK4L9gbgunzKXRmoV2rmydyDQfB9hI0'
-const TRACKER_RANGE = 'Quote Tracker!A:G'
+const TRACKER_RANGE = 'Quotes Tracker!A:G'
 
 // ── JWT / OAuth helpers ───────────────────────────────────────────────────────
 
