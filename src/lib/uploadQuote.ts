@@ -14,7 +14,7 @@ export async function uploadQuote(params: {
   for (let i = 0; i < pdfBytes.length; i++) binary += String.fromCharCode(pdfBytes[i])
   const pdfBase64 = btoa(binary)
 
-  await fetch('/api/upload-quote', {
+  const res = await fetch('/api/upload-quote', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -30,4 +30,8 @@ export async function uploadQuote(params: {
       quoteDate: quote.quoteDate,
     }),
   })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: res.statusText })) as { error?: string }
+    throw new Error(body.error ?? res.statusText)
+  }
 }

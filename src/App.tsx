@@ -140,8 +140,9 @@ function AppContent() {
     try {
       for (const quote of data) {
         const { pdfBytes, filename } = await generateQuotePDF(quote, profile)
-        // Fire-and-forget — upload to Drive + log to tracker without blocking the user
-        void uploadQuote({ pdfBytes, filename, quote, agent: profile, brand })
+        // Upload to Drive + log to tracker (awaited temporarily for debugging)
+        uploadQuote({ pdfBytes, filename, quote, agent: profile, brand })
+          .catch((err) => alert('Upload error: ' + String(err)))
       }
       setQuotes(data)
       setStep('done')
