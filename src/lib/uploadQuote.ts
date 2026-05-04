@@ -31,7 +31,7 @@ export async function uploadQuote(params: {
     }),
   })
   if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: res.statusText })) as { error?: string }
-    throw new Error(body.error ?? res.statusText)
+    const raw = await res.text().catch(() => res.statusText)
+    throw new Error(`${res.status}: ${raw}`)
   }
 }
