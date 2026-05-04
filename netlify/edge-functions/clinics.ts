@@ -2,7 +2,7 @@
 // Runs on Deno (Cloudflare Workers-like) — no Node.js crypto module available.
 // Environment variables: GOOGLE_SERVICE_ACCOUNT_JSON, CLINIC_APP_SPREADSHEET_ID
 
-const RANGE = 'Clinic App!A:J'
+const RANGE = 'Clinic App!A:L'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -115,6 +115,8 @@ export default async (request: Request) => {
         status: 'active' as const,
         notes: (r[8] ?? '').trim(),
         template_pdf_url: (r[9] ?? '').trim(),
+        canva_template: (r[10] ?? '').trim(),
+        canva_folder: (r[11] ?? '').trim(),
       }))
       .filter((r) => r.clinic_name && r.brand)
 

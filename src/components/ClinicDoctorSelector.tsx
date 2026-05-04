@@ -15,6 +15,8 @@ interface ClinicOption {
   google_folder: string
   clinic_profile_url: string
   template_pdf_url: string
+  canva_template: string
+  canva_folder: string
 }
 
 const key = (name: string) => name.trim().toLowerCase()
@@ -42,6 +44,8 @@ export default function ClinicDoctorSelector({
         google_folder: row.google_folder,
         clinic_profile_url: row.clinic_profile_url,
         template_pdf_url: row.template_pdf_url,
+        canva_template: row.canva_template,
+        canva_folder: row.canva_folder,
       })
     }
   }

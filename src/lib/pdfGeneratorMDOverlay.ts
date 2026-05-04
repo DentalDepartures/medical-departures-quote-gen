@@ -141,7 +141,7 @@ function autoFitSize(
 export async function generateMDQuotePDFOverlay(
   quote: QuoteData,
   agent: AgentProfile,
-): Promise<void> {
+): Promise<{ pdfBytes: Uint8Array; filename: string }> {
   if (!quote.templatePdfUrl) {
     throw new Error(
       'No PDF template configured for this clinic. Ask your admin to add a template_pdf_url in the Clinic App sheet.',
@@ -369,15 +369,8 @@ export async function generateMDQuotePDFOverlay(
     page2.node.addAnnot(linkAnnot)
   }
 
-  // ── Save and trigger browser download ─────────────────────────────────────
+  // ── Save and return bytes ──────────────────────────────────────────────────
   const pdfBytes = await pdfDoc.save()
-  const blob = new Blob([pdfBytes.buffer as ArrayBuffer], { type: 'application/pdf' })
-  const blobUrl = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = blobUrl
-  a.download = `${quote.patientName || 'Quote'} - ${quote.treatmentName || 'Treatment'}.pdf`
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(blobUrl)
+  const filename = `${quote.patientName || 'Quote'} - ${quote.treatmentName || 'Treatment'}.pdf`
+  return { pdfBytes, filename }
 }

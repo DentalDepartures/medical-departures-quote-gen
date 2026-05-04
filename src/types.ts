@@ -34,6 +34,9 @@ export interface QuoteData {
 
   // PDF generation — template URL from clinic row (not editable)
   templatePdfUrl: string | null
+
+  // Drive — Final Quote folder URL for this clinic/doctor row
+  googleFolder: string | null
 }
 
 export interface ClinicRow {
@@ -47,6 +50,8 @@ export interface ClinicRow {
   status: 'active' | 'inactive' | 'error'
   notes: string
   template_pdf_url: string
+  canva_template: string
+  canva_folder: string
 }
 
 export interface SelectedClinic {
@@ -55,6 +60,8 @@ export interface SelectedClinic {
   google_folder: string
   clinic_profile_url: string
   template_pdf_url: string
+  canva_template: string
+  canva_folder: string
 }
 
 export interface SelectedDoctor {

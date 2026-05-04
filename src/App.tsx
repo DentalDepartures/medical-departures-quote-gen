@@ -5,6 +5,7 @@ import { generateQuotePDF } from './lib/pdfService'
 import { BrandProvider, useBrand } from './contexts/BrandContext'
 import { fetchClinicRows } from './lib/clinicsApi'
 
+import { uploadQuote } from './lib/uploadQuote'
 import PasteInput from './components/PasteInput'
 import ReviewForm from './components/ReviewForm'
 import QuoteDone from './components/QuoteDone'
@@ -79,6 +80,7 @@ function AppContent() {
           ...q,
           quoteDate: today,
           templatePdfUrl: null,
+          googleFolder: null,
           // override with clinic selection
           ...(clinic
             ? {
@@ -86,6 +88,7 @@ function AppContent() {
                 clinicLocation: clinic.location,
                 clinicProfileUrl: clinic.clinic_profile_url,
                 templatePdfUrl: clinic.template_pdf_url || null,
+                googleFolder: clinic.google_folder || null,
               }
             : {}),
           // override with doctor selection — template_pdf_url is per clinic+doctor row
@@ -136,7 +139,9 @@ function AppContent() {
     setIsGenerating(true)
     try {
       for (const quote of data) {
-        await generateQuotePDF(quote, profile)
+        const { pdfBytes, filename } = await generateQuotePDF(quote, profile)
+        // Fire-and-forget — upload to Drive + log to tracker without blocking the user
+        void uploadQuote({ pdfBytes, filename, quote, agent: profile, brand })
       }
       setQuotes(data)
       setStep('done')
