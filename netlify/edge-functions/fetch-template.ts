@@ -149,17 +149,9 @@ export default async (request: Request) => {
           { headers: { Authorization: `Bearer ${token}` } },
         )
 
-        if (driveRes.status === 403) {
-          return jsonError(
-            'Template PDF is not accessible. Share the "Quotes Auto" Google Drive folder with quote-generator@valid-shine-476508-u5.iam.gserviceaccount.com as Viewer.',
-            403,
-          )
-        }
-        if (driveRes.status === 404) {
-          return jsonError('Template PDF not found. Check the template URL in the clinic sheet.', 404)
-        }
         if (!driveRes.ok) {
-          return jsonError(`Drive API returned ${driveRes.status}: ${driveRes.statusText}`, driveRes.status)
+          const body = await driveRes.text()
+          return jsonError(`Drive API ${driveRes.status}: ${body}`, driveRes.status)
         }
 
         const buffer = await driveRes.arrayBuffer()
