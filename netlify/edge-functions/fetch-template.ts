@@ -145,7 +145,7 @@ export default async (request: Request) => {
         // Service account auth — works without public sharing
         const token = await getDriveAccessToken()
         const driveRes = await fetch(
-          `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
+          `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`,
           { headers: { Authorization: `Bearer ${token}` } },
         )
 
