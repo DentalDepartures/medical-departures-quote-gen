@@ -38,7 +38,21 @@ Rules:
 - clinicLocation: "City, Country" format
 - importantNotes: each note on its own line, prefixed with "- ". Use actual newlines between notes.
   Example: "- Consultation required\n- Valid for 30 days\n- Prices in THB"
-- accreditations: combine all accreditation details into one string`
+- accreditations: combine all accreditation details into one string
+
+--- OPTION-BASED PROMOTIONS ---
+When the text is a promotion listing multiple treatment options (e.g. "You can choose from: - Option A for X THB, - Option B for Y THB"):
+- Extract EACH option as its own separate object in the array
+- Use the specific option name as treatmentName (e.g. "Liposuction - Upper Back")
+- Use the specific option price as price
+- Apply the shared package inclusions to ALL options
+- Apply the shared package exclusions to ALL options
+- For importantNotes on EVERY option, always include:
+  1. A note stating the lowest available price: "- Package starts from [MIN_PRICE] [CURRENCY]. Final price depends on the selected treatment area."
+  2. Any shared notes (validity dates, stay requirements, etc.)
+  3. Any option-specific note ONLY on that specific option's object
+- Shared fields (clinicName, clinicLocation, surgeonName, etc.) are duplicated across all option objects
+- Do NOT invent details not present in the source text`
 
 const CORS = {
   'Content-Type': 'application/json',

@@ -138,11 +138,20 @@ function AppContent() {
     if (!profile) return
     setIsGenerating(true)
     try {
+      const uploadFailures: string[] = []
       for (const quote of data) {
         const { pdfBytes, filename } = await generateQuotePDF(quote, profile)
-        // Upload to Drive + log to tracker (awaited temporarily for debugging)
-        uploadQuote({ pdfBytes, filename, quote, agent: profile, brand })
-          .catch((err) => alert('Upload error: ' + String(err)))
+        try {
+          await uploadQuote({ pdfBytes, filename, quote, agent: profile, brand })
+        } catch (uploadErr) {
+          uploadFailures.push(`${quote.treatmentName || 'Quote'}: ${String(uploadErr)}`)
+        }
+      }
+      if (uploadFailures.length > 0) {
+        alert(
+          `⚠ ${uploadFailures.length} of ${data.length} quotes failed to upload/log to tracker:\n\n` +
+          uploadFailures.join('\n')
+        )
       }
       setQuotes(data)
       setStep('done')

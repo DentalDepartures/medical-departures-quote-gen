@@ -136,6 +136,28 @@ function autoFitSize(
   return size
 }
 
+// Shrinks procedure name font until it fits both horizontally and vertically.
+// lineH scales proportionally with font size.
+function fitProcedureName(
+  text: string,
+  widthOf: (s: string, sz: number) => number,
+  cfg: { size: number; maxWidth: number; lineH: number },
+  bottomY: number,
+  startY: number,
+  minSize = 8,
+): { size: number; lines: string[]; lineH: number } {
+  const available = startY - bottomY
+  let size = cfg.size
+  while (size >= minSize) {
+    const lines = wrapText(text, s => widthOf(s, size), cfg.maxWidth)
+    const lh = cfg.lineH * (size / cfg.size)
+    if (lines.length * lh <= available) return { size, lines, lineH: lh }
+    size -= 0.5
+  }
+  const lines = wrapText(text, s => widthOf(s, minSize), cfg.maxWidth)
+  return { size: minSize, lines, lineH: cfg.lineH * (minSize / cfg.size) }
+}
+
 // ── Main export ───────────────────────────────────────────────────────────────
 
 export async function generateMDQuotePDFOverlay(
@@ -181,11 +203,11 @@ export async function generateMDQuotePDFOverlay(
 
   const c1 = MD_COORD.page1
 
-  // ── Procedure Name (navy bold, auto-shrink if longest word exceeds column) ──
+  // ── Procedure Name (auto-shrink to fit both column width and height above price box) ──
   const procText = quote.treatmentName || ''
-  const longestWord = procText.split(' ').reduce((a, b) => (a.length > b.length ? a : b), '')
-  const procSize = autoFitSize(longestWord, boldW, c1.procedureName.size, c1.procedureName.maxWidth)
-  const procLines = wrapText(procText, s => boldW(s, procSize), c1.procedureName.maxWidth)
+  // bottomY: safe boundary just above the red price banner (price baseline ~610, box top ~638)
+  const { size: procSize, lines: procLines, lineH: procLineH } =
+    fitProcedureName(procText, boldW, c1.procedureName, 638, c1.procedureName.startY)
 
   let procY = c1.procedureName.startY
   for (const line of procLines) {
@@ -193,7 +215,7 @@ export async function generateMDQuotePDFOverlay(
       x: c1.procedureName.x, y: procY,
       font: boldFont, size: procSize, color: MD_RED,
     })
-    procY -= c1.procedureName.lineH
+    procY -= procLineH
   }
 
   // ── Price (white bold, auto-shrink if too wide for the red banner) ─────────
@@ -309,16 +331,16 @@ export async function generateMDQuotePDFOverlay(
 
   const c2 = MD_COORD.page2
 
-  // ── Procedure Name (same layout as page 1) ─────────────────────────────────
+  // ── Procedure Name page 2 (same fit logic as page 1) ─────────────────────────
+  const { size: proc2Size, lines: proc2Lines, lineH: proc2LineH } =
+    fitProcedureName(procText, boldW, c2.procedureName, 638, c2.procedureName.startY)
   let procY2 = c2.procedureName.startY
-  const proc2Size = autoFitSize(longestWord, boldW, c2.procedureName.size, c2.procedureName.maxWidth)
-  const proc2Lines = wrapText(procText, s => boldW(s, proc2Size), c2.procedureName.maxWidth)
   for (const line of proc2Lines) {
     page2.drawText(line, {
       x: c2.procedureName.x, y: procY2,
       font: boldFont, size: proc2Size, color: MD_RED,
     })
-    procY2 -= c2.procedureName.lineH
+    procY2 -= proc2LineH
   }
 
   // ── Price ──────────────────────────────────────────────────────────────────
