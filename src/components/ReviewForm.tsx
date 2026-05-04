@@ -132,6 +132,14 @@ function QuoteEditor({ q, onChange }: { q: QuoteData; onChange: (q: QuoteData) =
 
       {/* Pricing */}
       <Section title="Pricing">
+        {q.pricePrefix && (
+          <div
+            className="rounded-lg px-3 py-2 mb-3 text-sm font-medium"
+            style={{ background: '#fff8e1', border: '1.5px solid #f6c90e', color: '#7a5c00' }}
+          >
+            PDF banner will show: <strong>{q.pricePrefix} {q.price?.toLocaleString('en-US')} {q.currency}</strong>
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-4" style={{ maxWidth: 320 }}>
           <div>
             <label className="label">Currency</label>
@@ -147,7 +155,7 @@ function QuoteEditor({ q, onChange }: { q: QuoteData; onChange: (q: QuoteData) =
               ))}
             </select>
           </div>
-          <Field label="Final Price">
+          <Field label={q.pricePrefix ? 'Starting Price' : 'Final Price'}>
             <input
               type="number"
               className="input-field"

@@ -4,9 +4,6 @@
 const SYSTEM_PROMPT = `You are a medical/dental tourism quote extraction specialist.
 Extract structured data from the provided quote text and return ONLY valid JSON.
 
-IMPORTANT: If the text contains multiple distinct procedures/treatments, return ONE object per procedure.
-If only one procedure is mentioned, return an array with one item.
-
 Return a JSON ARRAY where each element matches this schema (null for missing fields, [] for missing lists):
 [
   {
@@ -17,6 +14,7 @@ Return a JSON ARRAY where each element matches this schema (null for missing fie
     "clinicLocation": string | null,
     "clinicProfileUrl": string | null,
     "price": number | null,
+    "pricePrefix": string | null,
     "currency": string,
     "inclusions": string[],
     "exclusions": string[],
@@ -27,32 +25,42 @@ Return a JSON ARRAY where each element matches this schema (null for missing fie
   }
 ]
 
-Rules:
+═══════ CORE RULES ═══════
 - Return ONLY the JSON array, zero other text
-- Each procedure with its own price, inclusions, exclusions gets its own object
-- Shared fields (patientName, clinicName, surgeonName, etc.) are duplicated across objects
-- price: the FINAL payable price only. Strip all currency symbols and commas — plain number only
+- quoteDate: always return null
 - currency: ISO code — THB, USD, MXN, EUR, BRL, GBP, AUD, etc. Default to USD if unknown
-- quoteDate: always return null — the date is set automatically by the application
-- Handle any language (Spanish, Portuguese, Thai, French, etc.)
 - clinicLocation: "City, Country" format
-- importantNotes: each note on its own line, prefixed with "- ". Use actual newlines between notes.
-  Example: "- Consultation required\n- Valid for 30 days\n- Prices in THB"
 - accreditations: combine all accreditation details into one string
+- importantNotes: each note on its own line, prefixed with "- ". Use actual newlines (\n) between notes
+- Do NOT invent details not in the source text
+- Shared fields (clinicName, clinicLocation, surgeonName, etc.) are duplicated across all quote objects
 
---- OPTION-BASED PROMOTIONS ---
-When the text is a promotion listing multiple treatment options (e.g. "You can choose from: - Option A for X THB, - Option B for Y THB"):
-- Extract EACH option as its own separate object in the array
-- Use the specific option name as treatmentName (e.g. "Liposuction - Upper Back")
-- Use the specific option price as price
-- Apply the shared package inclusions to ALL options
-- Apply the shared package exclusions to ALL options
-- For importantNotes on EVERY option, always include:
-  1. A note stating the lowest available price: "- Package starts from [MIN_PRICE] [CURRENCY]. Final price depends on the selected treatment area."
-  2. Any shared notes (validity dates, stay requirements, etc.)
-  3. Any option-specific note ONLY on that specific option's object
-- Shared fields (clinicName, clinicLocation, surgeonName, etc.) are duplicated across all option objects
-- Do NOT invent details not present in the source text`
+═══════ PRICE RULES ═══════
+- If only one price exists → price = that number, pricePrefix = null
+- If BOTH Original Price and Promotion Price exist → price = Promotion Price (number only), pricePrefix = null. Ignore original price in the price field (may mention in importantNotes if useful)
+- If the source lists SAME-ROOT options with different prices → price = lowest numeric price, pricePrefix = "Starting from"
+- price field is always a plain number (strip all currency symbols and commas) or null
+- pricePrefix field is "Starting from" or null
+
+═══════ GROUPING RULES ═══════
+Determine the number of quote objects based on TREATMENT ROOT:
+
+SAME ROOT → ONE quote object
+If multiple options share the same treatment root (e.g. all are "Liposuction" variants), group them into ONE quote:
+- treatmentName: use the package/promotion name as written in the source (e.g. "Liposuction Package Promotion - Wansiri Hospital")
+- price: lowest option price (number)
+- pricePrefix: "Starting from"
+- inclusions: shared package inclusions
+- exclusions: shared package exclusions
+- importantNotes: include ALL of the following using actual newlines:
+  1. "- Package starts from [LOWEST_PRICE] [CURRENCY]. Final price depends on selected [treatment type] area."
+  2. "- Available options:\n  - [Option Name]: [PRICE] [CURRENCY]" — list ALL options, one per line with 2-space indent. If an option has a special note, append it after the price on the same line.
+  3. Any shared conditions (validity dates, stay requirements, etc.)
+
+DIFFERENT ROOTS → SEPARATE quote objects
+If the source contains clearly different treatment types (e.g. "Nose reduction" and "Earlobe reduction"), create one object per treatment root.
+- Each gets its own treatmentName, price, inclusions, exclusions
+- Shared information (conditions, pre-op costs, notes) is duplicated into each object's importantNotes`
 
 const CORS = {
   'Content-Type': 'application/json',

@@ -195,7 +195,9 @@ export async function generateMDQuotePDFOverlay(
   const boldW    = (s: string, sz: number) => boldFont.widthOfTextAtSize(s, sz)
   const regularW = (s: string, sz: number) => regularFont.widthOfTextAtSize(s, sz)
 
-  const priceStr = quote.price != null ? `${quote.price} ${quote.currency}` : ''
+  const priceStr = quote.price != null
+    ? `${quote.pricePrefix ? quote.pricePrefix + ' ' : ''}${quote.price.toLocaleString('en-US')} ${quote.currency}`
+    : (quote.pricePrefix || '')
 
   // ═══════════════════════════════════════════════════════════════════════════
   // PAGE 1

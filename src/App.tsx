@@ -81,6 +81,7 @@ function AppContent() {
           quoteDate: today,
           templatePdfUrl: null,
           googleFolder: null,
+          pricePrefix: null,
           // override with clinic selection
           ...(clinic
             ? {

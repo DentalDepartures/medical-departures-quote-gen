@@ -20,6 +20,7 @@ export interface QuoteData {
   // Pricing
   price: number | null
   currency: string
+  pricePrefix: string | null  // e.g. "Starting from" for grouped option packages
 
   // Package
   inclusions: string[]
