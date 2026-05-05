@@ -64,7 +64,28 @@ function LineCounter({ text, max }: { text: string; max: number }) {
   )
 }
 
-function QuoteEditor({ q, onChange }: { q: QuoteData; onChange: (q: QuoteData) => void }) {
+interface QuoteFieldErrors {
+  patientName?: string
+  treatmentName?: string
+  price?: string
+}
+
+function ErrorMsg({ msg }: { msg?: string }) {
+  if (!msg) return null
+  return <p className="text-xs mt-1 font-medium" style={{ color: '#e51b24' }}>{msg}</p>
+}
+
+function QuoteEditor({
+  q,
+  onChange,
+  errors = {},
+  onClearError,
+}: {
+  q: QuoteData
+  onChange: (q: QuoteData) => void
+  errors?: QuoteFieldErrors
+  onClearError: (field: keyof QuoteFieldErrors) => void
+}) {
   const [inclText, setInclText] = useState(() => q.inclusions.join('\n'))
   const [exclText, setExclText] = useState(() => q.exclusions.join('\n'))
   const [notesText, setNotesText] = useState(() => q.importantNotes ?? '')
@@ -92,18 +113,27 @@ function QuoteEditor({ q, onChange }: { q: QuoteData; onChange: (q: QuoteData) =
     lineHeight: 1.6,
   })
 
+  const inputErr = (hasErr?: string): React.CSSProperties => ({
+    border: `1.5px solid ${hasErr ? '#e51b24' : '#d1d5db'}`,
+  })
+
   return (
     <div className="card space-y-0">
       {/* Patient */}
       <Section title="Patient">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Field label="Patient Name">
+          <Field label="Patient Name *">
             <input
               type="text"
               className="input-field"
+              style={inputErr(errors.patientName)}
               value={q.patientName ?? ''}
-              onChange={(e) => set('patientName', e.target.value || null)}
+              onChange={(e) => {
+                set('patientName', e.target.value || null)
+                if (e.target.value.trim()) onClearError('patientName')
+              }}
             />
+            <ErrorMsg msg={errors.patientName} />
           </Field>
           <ReadOnlyField label="Quote Date" value={q.quoteDate} />
         </div>
@@ -111,13 +141,18 @@ function QuoteEditor({ q, onChange }: { q: QuoteData; onChange: (q: QuoteData) =
 
       {/* Treatment */}
       <Section title="Treatment">
-        <Field label="Treatment Name">
+        <Field label="Treatment Name *">
           <input
             type="text"
             className="input-field"
+            style={inputErr(errors.treatmentName)}
             value={q.treatmentName ?? ''}
-            onChange={(e) => set('treatmentName', e.target.value || null)}
+            onChange={(e) => {
+              set('treatmentName', e.target.value || null)
+              if (e.target.value.trim()) onClearError('treatmentName')
+            }}
           />
+          <ErrorMsg msg={errors.treatmentName} />
         </Field>
       </Section>
 
@@ -155,14 +190,19 @@ function QuoteEditor({ q, onChange }: { q: QuoteData; onChange: (q: QuoteData) =
               ))}
             </select>
           </div>
-          <Field label={q.pricePrefix ? 'Starting Price' : 'Final Price'}>
+          <Field label={`${q.pricePrefix ? 'Starting Price' : 'Final Price'} *`}>
             <input
               type="number"
               className="input-field"
+              style={inputErr(errors.price)}
               placeholder="270000"
               value={q.price ?? ''}
-              onChange={(e) => set('price', e.target.value ? parseFloat(e.target.value) : null)}
+              onChange={(e) => {
+                set('price', e.target.value ? parseFloat(e.target.value) : null)
+                if (e.target.value) onClearError('price')
+              }}
             />
+            <ErrorMsg msg={errors.price} />
           </Field>
         </div>
       </Section>
@@ -222,14 +262,33 @@ export default function ReviewForm({ initial, onConfirm, onBack, isGenerating }:
   const { config } = useBrand()
   const [quotes, setQuotes] = useState<QuoteData[]>(initial)
   const [activeIdx, setActiveIdx] = useState(0)
-  const [limitErrors, setLimitErrors] = useState<string[]>([])
+  const [allErrors, setAllErrors] = useState<string[]>([])
+  const [quoteFieldErrors, setQuoteFieldErrors] = useState<QuoteFieldErrors[]>(
+    () => initial.map(() => ({}))
+  )
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
 
     const errors: string[] = []
+    const newFieldErrors: QuoteFieldErrors[] = quotes.map(() => ({}))
+
     quotes.forEach((q, i) => {
       const prefix = quotes.length > 1 ? `Procedure ${i + 1}: ` : ''
+
+      if (!q.patientName?.trim()) {
+        newFieldErrors[i].patientName = 'Patient name is required'
+        errors.push(`${prefix}Patient name is required.`)
+      }
+      if (!q.treatmentName?.trim()) {
+        newFieldErrors[i].treatmentName = 'Treatment name is required'
+        errors.push(`${prefix}Treatment name is required.`)
+      }
+      if (q.price == null || isNaN(q.price)) {
+        newFieldErrors[i].price = 'Price is required'
+        errors.push(`${prefix}Price is required.`)
+      }
+
       const inclLines = q.inclusions.filter(s => s.trim()).length
       const exclLines = q.exclusions.filter(s => s.trim()).length
       const notesLines = countLines(q.importantNotes ?? '')
@@ -241,13 +300,33 @@ export default function ReviewForm({ initial, onConfirm, onBack, isGenerating }:
         errors.push(`${prefix}Important Notes cannot exceed 23 lines.`)
     })
 
+    setQuoteFieldErrors(newFieldErrors)
+
     if (errors.length > 0) {
-      setLimitErrors(errors)
+      setAllErrors(errors)
+      // Auto-switch to first tab that has field errors
+      const firstErrIdx = newFieldErrors.findIndex(e => Object.keys(e).length > 0)
+      if (firstErrIdx >= 0) setActiveIdx(firstErrIdx)
       return
     }
 
-    setLimitErrors([])
+    setAllErrors([])
     onConfirm(quotes)
+  }
+
+  function clearQuoteFieldError(quoteIdx: number, field: keyof QuoteFieldErrors) {
+    setQuoteFieldErrors(prev => {
+      const next = [...prev]
+      next[quoteIdx] = { ...next[quoteIdx], [field]: undefined }
+      return next
+    })
+    // Remove matching error from the banner
+    setAllErrors(prev => prev.filter(e => {
+      if (field === 'patientName') return !e.includes('Patient name')
+      if (field === 'treatmentName') return !e.includes('Treatment name')
+      if (field === 'price') return !e.includes('Price is required')
+      return true
+    }))
   }
 
   const tabLabel = (q: QuoteData, i: number) =>
@@ -323,7 +402,7 @@ export default function ReviewForm({ initial, onConfirm, onBack, isGenerating }:
           </div>
         )}
 
-        {limitErrors.length > 0 && (
+        {allErrors.length > 0 && (
           <div
             className="rounded-xl mb-5 px-5 py-4"
             style={{ background: '#fff5f5', border: '1.5px solid #fca5a5' }}
@@ -332,7 +411,7 @@ export default function ReviewForm({ initial, onConfirm, onBack, isGenerating }:
               Please fix the following before generating:
             </p>
             <ul className="space-y-1">
-              {limitErrors.map((err, i) => (
+              {allErrors.map((err, i) => (
                 <li key={i} className="text-sm" style={{ color: '#dc2626' }}>
                   • {err}
                 </li>
@@ -347,6 +426,8 @@ export default function ReviewForm({ initial, onConfirm, onBack, isGenerating }:
             onChange={(updated) =>
               setQuotes(quotes.map((q, i) => (i === activeIdx ? updated : q)))
             }
+            errors={quoteFieldErrors[activeIdx]}
+            onClearError={(field) => clearQuoteFieldError(activeIdx, field)}
           />
         </form>
       </div>
