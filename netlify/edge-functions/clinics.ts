@@ -40,10 +40,18 @@ async function signRS256(signingInput: string, pemKey: string): Promise<string> 
   return uint8ToBase64url(new Uint8Array(sig))
 }
 
+function fetchWithTimeout(url: string, init: RequestInit, ms = 8000): Promise<Response> {
+  const controller = new AbortController()
+  const id = setTimeout(() => controller.abort(), ms)
+  return fetch(url, { ...init, signal: controller.signal }).finally(() => clearTimeout(id))
+}
+
 async function getAccessToken(): Promise<string> {
   const saJson = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON')
   if (!saJson) throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON not configured')
   const sa = JSON.parse(saJson) as { client_email: string; private_key: string }
+  // Normalise key: JSON.parse should give real newlines, but env vars sometimes double-escape them
+  const privateKey = sa.private_key.replace(/\\n/g, '\n')
   const now = Math.floor(Date.now() / 1000)
 
   const header  = base64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }))
@@ -55,10 +63,10 @@ async function getAccessToken(): Promise<string> {
     iat: now,
   }))
   const signingInput = `${header}.${payload}`
-  const signature = await signRS256(signingInput, sa.private_key)
+  const signature = await signRS256(signingInput, privateKey)
   const jwt = `${signingInput}.${signature}`
 
-  const res = await fetch('https://oauth2.googleapis.com/token', {
+  const res = await fetchWithTimeout('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
@@ -86,7 +94,7 @@ export default async (request: Request) => {
   try {
     const token = await getAccessToken()
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(RANGE)}`
-    const sheetsRes = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+    const sheetsRes = await fetchWithTimeout(url, { headers: { Authorization: `Bearer ${token}` } })
 
     if (!sheetsRes.ok) {
       throw new Error(`Sheets API ${sheetsRes.status}: ${await sheetsRes.text()}`)
