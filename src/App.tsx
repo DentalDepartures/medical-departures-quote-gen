@@ -139,34 +139,39 @@ function AppContent() {
     if (!profile) return
     setIsGenerating(true)
     try {
-      const uploadFailures: string[] = []
+      const failures: string[] = []
       for (const quote of data) {
-        const { pdfBytes, filename } = await generateQuotePDF(quote, profile)
         try {
-          await uploadQuote({ pdfBytes, filename, quote, agent: profile, brand })
-        } catch (uploadErr) {
-          uploadFailures.push(`${quote.treatmentName || 'Quote'}: ${String(uploadErr)}`)
+          const { pdfBytes, filename } = await generateQuotePDF(quote, profile)
+          try {
+            await uploadQuote({ pdfBytes, filename, quote, agent: profile, brand })
+          } catch (uploadErr) {
+            failures.push(`${quote.treatmentName || 'Quote'} — upload failed: ${String(uploadErr)}`)
+          }
+        } catch (pdfErr) {
+          const msg = String(pdfErr)
+          failures.push(`${quote.treatmentName || 'Quote'} — PDF failed: ${msg}`)
+          void reportError({
+            errorType: 'pdf',
+            message: msg,
+            step: 'PDF generation / download',
+            patientName: quote.patientName,
+            agentName: profile.name,
+            agentEmail: profile.email,
+          })
         }
       }
-      if (uploadFailures.length > 0) {
+      if (failures.length > 0) {
         alert(
-          `⚠ ${uploadFailures.length} of ${data.length} quotes failed to upload/log to tracker:\n\n` +
-          uploadFailures.join('\n')
+          `⚠ ${failures.length} of ${data.length} quotes had issues:\n\n` +
+          failures.join('\n')
         )
       }
       setQuotes(data)
       setStep('done')
     } catch (err) {
       const msg = String(err)
-      alert('PDF generation failed: ' + msg)
-      void reportError({
-        errorType: 'pdf',
-        message: msg,
-        step: 'PDF generation / download',
-        patientName: data[0]?.patientName,
-        agentName: profile.name,
-        agentEmail: profile.email,
-      })
+      alert('Unexpected error: ' + msg)
     } finally {
       setIsGenerating(false)
     }

@@ -12,6 +12,9 @@
 
 # All API routes served by Edge Functions (Deno/Cloudflare Workers).
 # Edge Functions have no AWS Lambda 4KB env-var limit, so GOOGLE_SERVICE_ACCOUNT_JSON fits.
+# Explicitly disable Lambda functions — no standard functions are used in this app.
+[functions]
+  directory = "netlify/disabled-functions"
 
 [[edge_functions]]
   function = "extract"

@@ -17,13 +17,13 @@ export function saveProfile(profile: AgentProfile): void {
 }
 
 export function getApiKey(): string | null {
-  return localStorage.getItem(API_KEY_KEY)
+  return sessionStorage.getItem(API_KEY_KEY)
 }
 
 export function saveApiKey(key: string): void {
-  localStorage.setItem(API_KEY_KEY, key)
+  sessionStorage.setItem(API_KEY_KEY, key)
 }
 
 export function clearApiKey(): void {
-  localStorage.removeItem(API_KEY_KEY)
+  sessionStorage.removeItem(API_KEY_KEY)
 }

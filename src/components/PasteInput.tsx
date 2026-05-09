@@ -104,7 +104,7 @@ export default function PasteInput({ rows, clinicsLoading, clinicsError, totalCl
             style={{ height: 60, objectFit: 'contain', marginBottom: 16 }}
           />
           <h1 className="text-2xl font-extrabold" style={{ color: config.primary, margin: 0 }}>
-            Quote Generator
+            Dental Medical Departures — Quote Generator
           </h1>
           <p className="text-sm mt-2" style={{ color: '#888' }}>
             Paste raw clinic quote data below — AI will extract and format it into a branded PDF

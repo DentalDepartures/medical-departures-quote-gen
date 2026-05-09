@@ -247,6 +247,7 @@ export async function generateMDQuotePDFOverlay(
   const iconSize = 9
   let inclY = c1.inclusions.startY
   for (const item of quote.inclusions) {
+    if (inclY < 200) break
     const wrapped = wrapText(
       item,
       s => regularW(s, c1.inclusions.size),
@@ -262,6 +263,7 @@ export async function generateMDQuotePDFOverlay(
     })
     inclY -= c1.inclusions.lineH
     for (let i = 1; i < wrapped.length; i++) {
+      if (inclY < 200) break
       page1.drawText(wrapped[i], {
         x: c1.inclusions.textX, y: inclY,
         font: regularFont, size: c1.inclusions.size, color: DARK,
@@ -275,6 +277,7 @@ export async function generateMDQuotePDFOverlay(
   // iconX aligns with heading left edge; textX starts 11pt after icon.
   let exclY = c1.exclusions.startY
   for (const item of quote.exclusions) {
+    if (exclY < 360) break  // stop above the IMPORTANT NOTES section (startY: 351.7)
     const wrapped = wrapText(
       item,
       s => regularW(s, c1.exclusions.size),
@@ -290,6 +293,7 @@ export async function generateMDQuotePDFOverlay(
     })
     exclY -= c1.exclusions.lineH
     for (let i = 1; i < wrapped.length; i++) {
+      if (exclY < 360) break
       page1.drawText(wrapped[i], {
         x: c1.exclusions.textX, y: exclY,
         font: regularFont, size: c1.exclusions.size, color: DARK,

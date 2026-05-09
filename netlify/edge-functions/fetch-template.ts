@@ -41,6 +41,7 @@ async function getDriveAccessToken(): Promise<string> {
   const saJson = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON')
   if (!saJson) throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON not configured')
   const sa = JSON.parse(saJson) as { client_email: string; private_key: string }
+  const privateKey = sa.private_key.replace(/\\n/g, '\n')
   const now = Math.floor(Date.now() / 1000)
 
   const header  = base64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }))
@@ -52,7 +53,7 @@ async function getDriveAccessToken(): Promise<string> {
     iat: now,
   }))
   const signingInput = `${header}.${payload}`
-  const signature = await signRS256(signingInput, sa.private_key)
+  const signature = await signRS256(signingInput, privateKey)
   const jwt = `${signingInput}.${signature}`
 
   const res = await fetch('https://oauth2.googleapis.com/token', {
@@ -97,9 +98,7 @@ function isAllowedUrl(url: string): boolean {
     return (
       hostname === 'drive.google.com' ||
       hostname === 'drive.usercontent.google.com' ||
-      hostname === 'docs.google.com' ||
-      hostname.endsWith('.netlify.app') ||
-      hostname.endsWith('.netlify.com')
+      hostname === 'docs.google.com'
     )
   } catch {
     return false

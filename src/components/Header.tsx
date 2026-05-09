@@ -34,7 +34,7 @@ export default function Header({ profile, onEditProfile }: Props) {
 
         {/* Title */}
         <h1 className="text-base font-semibold hidden sm:block text-blue-100">
-          Quote Generator
+          Dental Medical Departures — Quote Generator
         </h1>
 
         {/* Agent profile */}

@@ -103,9 +103,10 @@ export default async (request: Request) => {
     const data = await sheetsRes.json() as { values?: string[][] }
     const [, ...dataRows] = data.values ?? []
 
-    // Column index mapping (A=0 … J=9) — matches current sheet structure:
+    // Column index mapping (A=0 … L=11) — matches current sheet structure:
     // 0:brand 1:clinic_name 2:location 3:google_folder 4:clinic_profile_url
     // 5:surgeon_name 6:accreditations 7:status 8:notes 9:template_pdf_url
+    // 10:canva_template 11:canva_folder
     const rows = dataRows
       .filter((r) => (r[7] ?? '').trim().toLowerCase() === 'active')
       .map((r) => ({

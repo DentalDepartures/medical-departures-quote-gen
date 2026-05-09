@@ -212,8 +212,10 @@ function QuoteEditor({
         <Field label={`Inclusions (one per line)`}>
           <textarea
             value={inclText}
-            onChange={(e) => setInclText(e.target.value)}
-            onBlur={() => set('inclusions', textToArray(inclText))}
+            onChange={(e) => {
+              setInclText(e.target.value)
+              set('inclusions', textToArray(e.target.value))
+            }}
             style={{ ...textareaStyle(inclCount, LIMITS.inclusions), minHeight: 128 }}
           />
           <LineCounter text={inclText} max={LIMITS.inclusions} />
@@ -221,8 +223,10 @@ function QuoteEditor({
         <Field label={`Exclusions (one per line)`}>
           <textarea
             value={exclText}
-            onChange={(e) => setExclText(e.target.value)}
-            onBlur={() => set('exclusions', textToArray(exclText))}
+            onChange={(e) => {
+              setExclText(e.target.value)
+              set('exclusions', textToArray(e.target.value))
+            }}
             style={{ ...textareaStyle(exclCount, LIMITS.exclusions), minHeight: 96 }}
           />
           <LineCounter text={exclText} max={LIMITS.exclusions} />
@@ -284,9 +288,9 @@ export default function ReviewForm({ initial, onConfirm, onBack, isGenerating }:
         newFieldErrors[i].treatmentName = 'Treatment name is required'
         errors.push(`${prefix}Treatment name is required.`)
       }
-      if (q.price == null || isNaN(q.price)) {
-        newFieldErrors[i].price = 'Price is required'
-        errors.push(`${prefix}Price is required.`)
+      if (q.price == null || isNaN(q.price) || q.price <= 0) {
+        newFieldErrors[i].price = 'Price must be a positive number'
+        errors.push(`${prefix}Price must be a positive number.`)
       }
 
       const inclLines = q.inclusions.filter(s => s.trim()).length

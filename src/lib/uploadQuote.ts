@@ -9,10 +9,13 @@ export async function uploadQuote(params: {
 }): Promise<void> {
   const { pdfBytes, filename, quote, agent, brand } = params
 
-  // Convert bytes to base64
-  let binary = ''
-  for (let i = 0; i < pdfBytes.length; i++) binary += String.fromCharCode(pdfBytes[i])
-  const pdfBase64 = btoa(binary)
+  // Convert bytes to base64 in chunks to avoid call-stack overflow on large PDFs
+  const chunkSize = 8192
+  const chunks: string[] = []
+  for (let i = 0; i < pdfBytes.length; i += chunkSize) {
+    chunks.push(String.fromCharCode(...pdfBytes.subarray(i, i + chunkSize)))
+  }
+  const pdfBase64 = btoa(chunks.join(''))
 
   const res = await fetch('/api/upload-quote', {
     method: 'POST',

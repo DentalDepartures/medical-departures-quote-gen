@@ -2,7 +2,7 @@
 // Environment variables: RESEND_API_KEY
 
 const YANA_EMAIL = 'yana.arkhipova@dentaldepartures.com'
-const FROM_EMAIL = 'MD Quote Generator <onboarding@resend.dev>'
+const FROM_EMAIL = 'Dental Medical Departures Quote Generator <onboarding@resend.dev>'
 
 const ERROR_LABELS: Record<string, string> = {
   extraction: 'Quote Extraction Failed',
@@ -33,7 +33,7 @@ export default async (request: Request) => {
     const html = `
       <div style="font-family:sans-serif;max-width:600px;margin:0 auto">
         <div style="background:#00467f;padding:16px 24px;border-radius:6px 6px 0 0">
-          <h2 style="color:#fff;margin:0;font-size:18px">⚠️ Quote Generator Error</h2>
+          <h2 style="color:#fff;margin:0;font-size:18px">⚠️ Dental Medical Departures — Quote Generator Error</h2>
         </div>
         <div style="border:1px solid #e5e7eb;border-top:none;padding:24px;border-radius:0 0 6px 6px">
           <table style="width:100%;border-collapse:collapse">
@@ -52,7 +52,7 @@ export default async (request: Request) => {
           </table>
           <hr style="margin:20px 0;border:none;border-top:1px solid #e5e7eb">
           <p style="color:#6b7280;font-size:12px;margin:0">
-            Sent automatically by the Medical Departures Quote Generator.<br>
+            Sent automatically by the Dental Medical Departures Quote Generator.<br>
             Site: <a href="https://dental-medical-departures-quote-gen.netlify.app">dental-medical-departures-quote-gen.netlify.app</a>
           </p>
         </div>

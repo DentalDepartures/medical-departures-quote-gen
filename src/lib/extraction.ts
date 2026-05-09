@@ -82,29 +82,36 @@ async function callAnthropic(rawText: string, apiKey: string): Promise<QuoteData
 }
 
 export async function extractQuoteData(rawText: string): Promise<QuoteData[]> {
-  // 1. Try server-side proxy first
+  // 1. Try server-side proxy first (holds the API key securely)
+  let networkFailure = false
   try {
     const res = await fetch('/api/extract', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ rawText }),
     })
-    if (res.ok) {
-      const data = await res.json()
-      if (data && !data.error) {
-        return Array.isArray(data) ? data as QuoteData[] : [data as QuoteData]
-      }
-      if (data?.error) throw new Error(data.error)
+    const data = await res.json()
+    if (res.ok && data && !data.error) {
+      return Array.isArray(data) ? data as QuoteData[] : [data as QuoteData]
     }
+    // Surface server-side errors directly — do not fall through
+    throw new Error(data?.error ?? `Server error ${res.status}`)
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
-    if (msg.includes('Anthropic error') || msg.includes('credit balance') || msg.includes('invalid')) {
+    // Only fall back to direct call on network-level failure (local dev without the edge function)
+    if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('Load failed')) {
+      networkFailure = true
+    } else {
       throw err
     }
   }
 
-  // 2. Fall back to direct call
-  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY || getApiKey()
-  if (!apiKey) throw new Error('NO_API_KEY')
-  return callAnthropic(rawText, apiKey)
+  // 2. Local-dev fallback — direct call (VITE key is dev-only; never set in production)
+  if (networkFailure) {
+    const apiKey = (import.meta.env.DEV ? import.meta.env.VITE_ANTHROPIC_API_KEY : null) || getApiKey()
+    if (!apiKey) throw new Error('NO_API_KEY')
+    return callAnthropic(rawText, apiKey)
+  }
+
+  throw new Error('Unexpected extraction failure')
 }

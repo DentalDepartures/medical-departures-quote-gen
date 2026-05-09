@@ -13,7 +13,10 @@ export async function generateQuotePDF(
   const { pdfBytes, filename } = await generateMDQuotePDFOverlay(quote, agent)
 
   // Trigger browser download
-  const blob = new Blob([pdfBytes.buffer as ArrayBuffer], { type: 'application/pdf' })
+  const blob = new Blob(
+    [pdfBytes.buffer.slice(pdfBytes.byteOffset, pdfBytes.byteOffset + pdfBytes.byteLength) as ArrayBuffer],
+    { type: 'application/pdf' },
+  )
   const blobUrl = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = blobUrl
