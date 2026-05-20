@@ -137,7 +137,7 @@ export default async (request: Request) => {
     })
   }
 
-  const model = Deno.env.get('ANTHROPIC_MODEL') || 'claude-opus-4-5'
+  const model = Deno.env.get('ANTHROPIC_MODEL') || 'claude-sonnet-4-6'
 
   try {
     const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
