@@ -310,6 +310,14 @@ export async function generateQuotePDFBytes(
   drawProcedure(page2, c.procedureName2)
   drawPrice(page2)
 
+  if (!doctor && legacyTemplate) {
+    // "No doctor" on an old per-clinic template: the template may have been exported from the doctor
+    // layout (card + placeholder text + headshot). Hide the whole card so nothing misleading is printed.
+    page2.drawRectangle({
+      x: 0, y: c.doctorCard.top - c.doctorCard.h - 6, width: c.doctorCard.x + c.doctorCard.w + 8, height: c.doctorCard.h + 12, color: WHITE,
+    })
+  }
+
   if (doctor) {
     if (legacyTemplate) {
       // Old templates may carry typed doctor text — repaint the text area of the card.
