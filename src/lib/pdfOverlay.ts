@@ -174,7 +174,7 @@ export async function generateQuotePDFBytes(
   const colors = BRAND[brand]
   const c = COORD
 
-  const [templateBytes, boldBytes, regularBytes, checkBytes, xBytes] = await Promise.all([
+  const [templateBytes, boldBytes, regularBytes, checkBytes, xBytes, brandBytes] = await Promise.all([
     legacyTemplate
       ? deps.fetchBytes(`/api/fetch-file?url=${encodeURIComponent(quote.templatePdfUrl!.trim())}`)
       : deps.fetchBytes(templatePath(brand, doctor)),
@@ -182,6 +182,8 @@ export async function generateQuotePDFBytes(
     deps.fetchBytes('/fonts/Montserrat-Regular.ttf'),
     deps.fetchBytes('/check.png'),
     deps.fetchBytes('/X.png'),
+    // Old per-clinic templates differ from the brand layout in places; regions are patched from the brand template.
+    legacyTemplate ? deps.fetchBytes(templatePath(brand, doctor)) : Promise.resolve(null),
   ])
 
   // Images are optional — a missing or broken image never blocks the quote.
@@ -207,6 +209,26 @@ export async function generateQuotePDFBytes(
   const pages = pdfDoc.getPages()
   const page1 = pages[0]
   const page2 = pages[1] ?? pages[0]
+
+  // Copies a rectangle of the brand template onto the same spot of the (legacy) page — same background art,
+  // so the result is seamless. No-op when the page itself is the brand template.
+  const brandDoc = brandBytes ? await PDFDocument.load(brandBytes) : null
+  const patchFromBrand = async (page: PDFPage, pageIndex: number, box: { left: number; bottom: number; right: number; top: number }) => {
+    if (!brandDoc) return
+    const src = brandDoc.getPages()[pageIndex] ?? brandDoc.getPages()[0]
+    const emb = await pdfDoc.embedPage(src, box)
+    page.drawPage(emb, { x: box.left, y: box.bottom, width: box.right - box.left, height: box.top - box.bottom })
+  }
+  if (legacyTemplate) {
+    // Page 1: the "IMPORTANT NOTES:" heading sits in different places on old templates — normalise it to the brand
+    // position (right column, between the exclusions list and the notes) so the notes never print over it.
+    await patchFromBrand(page1, 0, { left: 300, bottom: c.notes.startY - 2, right: 575, top: c.exclusions.stopY + 14 })
+    // Both pages: the "YOUR EXCLUSIVE TREATMENT PRICE" label (old templates carry a typo) — inside the price box.
+    for (const [pg, idx] of [[page1, 0], [page2, 1]] as const) {
+      pg.drawRectangle({ x: 40, y: 634, width: 232, height: 20, color: colors.accent })
+      await patchFromBrand(pg, idx, { left: 40, bottom: 634, right: 272, top: 654 })
+    }
+  }
 
   const boldW = (s: string, sz: number) => bold.widthOfTextAtSize(s, sz)
   const regularW = (s: string, sz: number) => regular.widthOfTextAtSize(s, sz)
@@ -312,9 +334,9 @@ export async function generateQuotePDFBytes(
 
   if (!doctor && legacyTemplate) {
     // "No doctor" on an old per-clinic template: the template may have been exported from the doctor
-    // layout (card + placeholder text + headshot). Hide the whole card so nothing misleading is printed.
-    page2.drawRectangle({
-      x: 0, y: c.doctorCard.top - c.doctorCard.h - 6, width: c.doctorCard.x + c.doctorCard.w + 8, height: c.doctorCard.h + 12, color: WHITE,
+    // layout (card + placeholder text + headshot). Replace that area with the brand no-doctor page.
+    await patchFromBrand(page2, 1, {
+      left: 0, bottom: c.doctorCard.top - c.doctorCard.h - 8, right: c.doctorCard.x + c.doctorCard.w + 10, top: c.doctorCard.top + 8,
     })
   }
 
