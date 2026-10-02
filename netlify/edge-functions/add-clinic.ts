@@ -174,6 +174,14 @@ export default async (request: Request) => {
       clinic: { brand: p.brand, clinic_name: clinicName, location: base.location },
     })
   } catch (err) {
-    return json({ error: String(err) }, 500)
+    const msg = String(err)
+    if (/protected cell or object/i.test(msg)) {
+      return json({
+        error: 'The "Clinic App" tab is protected, so the app cannot add rows to it. Ask the sheet owner to add ' +
+          'quote-generator@quote-generator-495310.iam.gserviceaccount.com as an editor of that protection ' +
+          '(Data → Protect sheets and ranges), then try again.',
+      }, 500)
+    }
+    return json({ error: msg }, 500)
   }
 }
