@@ -141,6 +141,17 @@ export async function driveDownload(token: string, fileId: string): Promise<Resp
 }
 
 export async function driveCreateFolder(token: string, name: string, parentId: string): Promise<{ id: string; webViewLink: string }> {
+  // Reuse an existing folder of the same name (a retried onboarding must not create duplicates)
+  const q = `name = '${name.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}' and '${parentId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`
+  const found = await fetchWithTimeout(
+    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&supportsAllDrives=true&includeItemsFromAllDrives=true&fields=files(id,webViewLink)&pageSize=1`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  )
+  if (found.ok) {
+    const data = await found.json() as { files?: { id: string; webViewLink?: string }[] }
+    const f = data.files?.[0]
+    if (f) return { id: f.id, webViewLink: f.webViewLink ?? `https://drive.google.com/drive/folders/${f.id}` }
+  }
   const res = await fetchWithTimeout(
     'https://www.googleapis.com/drive/v3/files?supportsAllDrives=true&fields=id,webViewLink',
     {
