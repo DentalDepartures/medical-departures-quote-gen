@@ -222,7 +222,7 @@ export async function generateQuotePDFBytes(
   if (legacyTemplate) {
     // Page 1: the "IMPORTANT NOTES:" heading sits in different places on old templates — normalise it to the brand
     // position (right column, between the exclusions list and the notes) so the notes never print over it.
-    await patchFromBrand(page1, 0, { left: 300, bottom: c.notes.startY - 2, right: 575, top: c.exclusions.stopY + 14 })
+    await patchFromBrand(page1, 0, { left: 300, bottom: c.notes.startY - 75, right: 575, top: c.exclusions.stopY + 14 })
     // Both pages: the "YOUR EXCLUSIVE TREATMENT PRICE" label (old templates carry a typo) — inside the price box.
     for (const [pg, idx] of [[page1, 0], [page2, 1]] as const) {
       pg.drawRectangle({ x: 40, y: 634, width: 232, height: 20, color: colors.accent })
