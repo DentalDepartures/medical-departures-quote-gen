@@ -29,13 +29,17 @@ function unique<T>(arr: T[]): T[] {
   return Array.from(new Set(arr))
 }
 
-function cleanImageUrl(u: string): string {
+/** Normalises an image URL; returns null for placeholders (bare host, no path) and non-http values. */
+function cleanImageUrl(u: string): string | null {
   try {
-    const url = new URL(u)
+    const url = new URL(u.trim())
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') return null
+    // The site renders "https://static.dentaldepartures.com/" when a clinic/doctor has no photo
+    if (url.pathname === '/' || url.pathname === '') return null
     url.searchParams.delete('width')
     return url.toString()
   } catch {
-    return u
+    return null
   }
 }
 
@@ -88,14 +92,16 @@ export function parseClinic(html: string, profileUrl: string, brand: Brand) {
   const gallery = sectionByClass(html, 'clinic-gallery')
   if (gallery) {
     for (const m of gallery.html.matchAll(/background-image:\s*url\((['"]?)([^'")]+)\1\)/g)) {
-      galleryImages.push(cleanImageUrl(m[2]))
+      const u = cleanImageUrl(m[2])
+      if (u) galleryImages.push(u)
     }
   }
 
   // Before/after: .before-after background-image (the strip of thumbnails)
   const beforeAfterImages: string[] = []
   for (const m of html.matchAll(/class="before-after[^"]*"[^>]*style="[^"]*background-image:\s*url\((['"]?)([^'")]+)\1\)/g)) {
-    beforeAfterImages.push(cleanImageUrl(m[2]))
+    const u = cleanImageUrl(m[2])
+    if (u) beforeAfterImages.push(u)
   }
 
   // Doctors: each .doctor-card
@@ -127,6 +133,8 @@ export function parseClinic(html: string, profileUrl: string, brand: Brand) {
         .filter(Boolean)
     })()
     const credentials = [years, ...associations.slice(0, 2)].filter(Boolean).join('; ')
+    // Same doctor can appear twice in the markup (mobile + desktop layouts)
+    if (doctors.some((d) => d.name.toLowerCase() === docName.toLowerCase())) continue
     doctors.push({ name: docName, credentials, imageUrl: img ? cleanImageUrl(img[1]) : null })
   }
 

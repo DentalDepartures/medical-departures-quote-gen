@@ -6,7 +6,7 @@ import { proxiedUrl } from '../lib/imagePrep'
 
 interface Props {
   agent: AgentProfile
-  onDone: (clinicName: string) => void
+  onDone: (clinicName: string, warnings: string[]) => void
   onCancel: () => void
 }
 
@@ -102,8 +102,8 @@ export default function AddClinic({ agent, onDone, onCancel }: Props) {
     }
     setSaving(true)
     try {
-      await addClinic(payload)
-      onDone(payload.clinicName)
+      const result = await addClinic(payload)
+      onDone(payload.clinicName, result.warnings ?? [])
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {

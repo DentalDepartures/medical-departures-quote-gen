@@ -32,6 +32,7 @@ function AppContent() {
   const [pendingClinic, setPendingClinic] = useState<SelectedClinic | null>(null)
   const [pendingDoctor, setPendingDoctor] = useState<SelectedDoctor | null>(null)
   const [preselectClinic, setPreselectClinic] = useState<string | null>(null)
+  const [clinicNotice, setClinicNotice] = useState<{ clinic: string; warnings: string[] } | null>(null)
 
   // Clinic rows — fetched live from the Google Sheet via the clinics edge function
   const [clinicRows, setClinicRows] = useState<ClinicRow[]>([])
@@ -172,8 +173,9 @@ function AppContent() {
       <AddClinic
         agent={agent}
         onCancel={() => setStep('paste')}
-        onDone={async (clinicName) => {
+        onDone={async (clinicName, warnings) => {
           setPreselectClinic(clinicName)
+          setClinicNotice({ clinic: clinicName, warnings })
           await loadClinics()
           setStep('paste')
         }}
@@ -184,6 +186,20 @@ function AppContent() {
   if (step === 'paste') {
     return (
       <>
+        {clinicNotice && (
+          <div className="max-w-3xl mx-auto px-4 pt-4">
+            <div
+              className="rounded-lg p-3 text-sm flex gap-3 items-start"
+              style={{ background: clinicNotice.warnings.length ? '#fff7e6' : '#eefbf1', border: `1px solid ${clinicNotice.warnings.length ? '#f0c36d' : '#9fd9ad'}` }}
+            >
+              <div className="flex-1">
+                <div style={{ fontWeight: 600 }}>“{clinicNotice.clinic}” added and selected.</div>
+                {clinicNotice.warnings.map((w, i) => <div key={i} style={{ marginTop: 4 }}>{w}</div>)}
+              </div>
+              <button type="button" onClick={() => setClinicNotice(null)} aria-label="Dismiss" style={{ color: '#888' }}>✕</button>
+            </div>
+          </div>
+        )}
         <PasteInput
           rows={brandRows}
           clinicsLoading={clinicsLoading}

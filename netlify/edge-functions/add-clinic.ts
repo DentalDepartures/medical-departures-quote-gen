@@ -61,12 +61,34 @@ async function loadImage(src: string): Promise<{ bytes: Uint8Array; mime: string
   return { bytes: new Uint8Array(await res.arrayBuffer()), mime }
 }
 
-/** Copies an image into the clinic folder; returns the Drive view link, or '' when src is empty. */
-async function copyImage(token: string, folderId: string, src: string | null, filename: string): Promise<string> {
-  if (!src) return ''
-  const { bytes, mime } = await loadImage(src)
-  const up = await driveUpload({ token, folderId, filename: `${filename}.${extFromMime(mime)}`, bytes, mimeType: mime })
-  return up.webViewLink
+/** True for a usable image source: a data: URI or an https URL with a real path (not the site's bare-host placeholder). */
+function isUsableImageSrc(src: string | null | undefined): src is string {
+  if (!src) return false
+  if (src.startsWith('data:')) return true
+  try {
+    const u = new URL(src)
+    return (u.protocol === 'https:' || u.protocol === 'http:') && u.pathname !== '/' && u.pathname !== ''
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Copies an image into the clinic folder; returns the Drive view link, or '' when there is no usable image.
+ * A failed copy never blocks onboarding the clinic — the slot stays empty and the reason is reported in `warnings`.
+ */
+async function copyImage(
+  token: string, folderId: string, src: string | null, filename: string, label: string, warnings: string[],
+): Promise<string> {
+  if (!isUsableImageSrc(src)) return ''
+  try {
+    const { bytes, mime } = await loadImage(src)
+    const up = await driveUpload({ token, folderId, filename: `${filename}.${extFromMime(mime)}`, bytes, mimeType: mime })
+    return up.webViewLink
+  } catch (err) {
+    warnings.push(`${label}: could not copy the photo (${String(err).replace(/^Error:\s*/, '')}) — saved without it; you can upload one later.`)
+    return ''
+  }
 }
 
 export default async (request: Request) => {
@@ -103,11 +125,12 @@ export default async (request: Request) => {
     const folder = await driveCreateFolder(token, `${clinicName} ${p.brand} Quotes`, parentFolderId)
 
     // 2. Images → Drive (stable source; the website may change)
-    const clinicImage = await copyImage(token, folder.id, p.clinicImageUrl, `${clinicName} - clinic`)
-    const beforeAfter = await copyImage(token, folder.id, p.beforeAfterImageUrl, `${clinicName} - before after`)
+    const warnings: string[] = []
+    const clinicImage = await copyImage(token, folder.id, p.clinicImageUrl, `${clinicName} - clinic`, 'Clinic photo', warnings)
+    const beforeAfter = await copyImage(token, folder.id, p.beforeAfterImageUrl, `${clinicName} - before after`, 'Before/after photo', warnings)
     const doctorImages: string[] = []
     for (const d of p.doctors ?? []) {
-      doctorImages.push(await copyImage(token, folder.id, d.imageUrl, `${clinicName} - ${safeName(d.name)}`))
+      doctorImages.push(await copyImage(token, folder.id, d.imageUrl, `${clinicName} - ${safeName(d.name)}`, `Headshot for ${d.name}`, warnings))
     }
 
     // 3. Sheet rows, placed by header name
@@ -147,6 +170,7 @@ export default async (request: Request) => {
       ok: true,
       folder: folder.webViewLink,
       rowsAdded: rows.length,
+      warnings,
       clinic: { brand: p.brand, clinic_name: clinicName, location: base.location },
     })
   } catch (err) {
