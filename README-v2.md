@@ -20,29 +20,19 @@ tracker column I and `utm_term`; the link hotspot now matches the button; exclus
 ## One-time setup for the test site
 
 ### 1. Spreadsheet (copy of *Quote Automs Links/Files Storage*)
-Make a copy of the sheet for testing. On the **Clinic App** tab, keep the existing headers and add these
-columns anywhere (header names matter, order does not):
-
-| header | what goes in it |
-| --- | --- |
-| `clinic_image_url` | Drive link of the page-1 photo (filled by Add-clinic) |
-| `before_after_image_url` | Drive link of the page-2 photo (optional) |
-| `doctor_image_url` | Drive link of the headshot, per doctor row |
-| `added_by` | agent who added the clinic |
-| `added_at` | timestamp |
+Make a copy of the sheet for testing and share it with
+`quote-generator@quote-generator-495310.iam.gserviceaccount.com` as **Editor**. That is all —
+the app adds any column it needs on first use (`clinic_image_url`, `before_after_image_url`,
+`doctor_image_url`, `added_by`, `added_at` on **Clinic App**; `quote_id` on **Quotes Tracker**).
+Header names matter, order does not.
 
 For existing rows nothing is required: no `*_image_url` → no photo on that slot; `template_pdf_url`
 still set → the old per-clinic template is used and painted over.
 
-On the **Quotes Tracker** tab add header `quote_id` in column I (H stays "Comments (for Yana)";
-the app writes an upload error there only when the Drive save failed).
-
-Share the copy with `quote-generator@quote-generator-495310.iam.gserviceaccount.com` as **Editor**.
-
 ### 2. Drive
-Share the **DD Quote PDFs** and **MD Quote PDFs** folders (or a test copy of them) with the service account
-as **Editor**. New clinic folders are created inside them; the service account must also be able to read the
-image files it uploads there (it owns them, so it can).
+Two folders where new clinic folders (and quotes for rows without a `google_folder`) go — one per brand —
+inside a folder the service account can edit. Subfolders of the *Quote Generator* folder inherit its sharing,
+so nothing extra to share.
 
 ### 3. Netlify — new site from this branch
 *Add new project → Import from Git → this repo → branch `v2`.* Build command and publish dir come from
@@ -71,6 +61,6 @@ Deploy. The site URL is whatever Netlify assigns; rename it in *Site configurati
 4. Repeat on the MD tab with `https://www.medicaldepartures.com/clinic/masterpiece-hospital`.
 
 ## Going live
-Point the production Netlify site at `v2` (or merge to `main`), set the same env vars with the real
-spreadsheet ID, add the five columns to the real Clinic App tab, and re-share nothing else — the service
-account already has access.
+Point the production Netlify site at `v2` (or merge to `main`) and set the same env vars with the real
+spreadsheet ID and the real DD/MD Quote PDFs folder IDs. The columns are created automatically on first use;
+the service account already has access.

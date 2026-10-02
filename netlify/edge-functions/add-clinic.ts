@@ -8,7 +8,7 @@
 
 import {
   CORS, SCOPES, driveCreateFolder, driveUpload, env, fetchWithTimeout, getAccessToken, json,
-  objectToRow, sheetHeaders, sheetsAppend, sheetsGet, rowsToObjects,
+  objectToRow, ensureHeaders, sheetsAppend, sheetsGet, rowsToObjects,
 } from '../edge-lib/google.ts'
 
 type Brand = 'DD' | 'MD'
@@ -111,10 +111,11 @@ export default async (request: Request) => {
     }
 
     // 3. Sheet rows, placed by header name
-    const headers = await sheetHeaders(token, spreadsheetId, tab)
-    const required = ['brand', 'clinic_name', 'location', 'google_folder', 'clinic_profile_url', 'surgeon_name', 'accreditations', 'status']
-    const missing = required.filter((h) => !headers.includes(h))
-    if (missing.length) return json({ error: `Clinic App tab is missing columns: ${missing.join(', ')}` }, 500)
+    // Any column the app writes that the tab doesn't have yet is created on the fly
+    const headers = await ensureHeaders(token, spreadsheetId, tab, [
+      'brand', 'clinic_name', 'location', 'google_folder', 'clinic_profile_url', 'surgeon_name', 'accreditations', 'status',
+      'clinic_image_url', 'before_after_image_url', 'doctor_image_url', 'added_by', 'added_at',
+    ])
 
     const now = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Bangkok' })
     const base: Record<string, string> = {

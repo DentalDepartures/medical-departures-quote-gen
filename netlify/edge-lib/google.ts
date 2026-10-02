@@ -235,3 +235,46 @@ export async function sheetHeaders(token: string, spreadsheetId: string, tab: st
 export function objectToRow(headers: string[], obj: Record<string, string>): string[] {
   return headers.map((h) => obj[h] ?? '')
 }
+
+function columnLetter(index0: number): string {
+  let n = index0 + 1
+  let s = ''
+  while (n > 0) {
+    const m = (n - 1) % 26
+    s = String.fromCharCode(65 + m) + s
+    n = Math.floor((n - 1) / 26)
+  }
+  return s
+}
+
+/**
+ * Makes sure the header row of `tab` contains every name in `required`
+ * (compared after normalisation). Missing headers are appended to the right
+ * of the existing ones, so no one has to edit the sheet by hand.
+ * Returns the (normalised) header list after the update.
+ */
+export async function ensureHeaders(
+  token: string,
+  spreadsheetId: string,
+  tab: string,
+  required: string[],
+): Promise<string[]> {
+  const raw = (await sheetsGet(token, spreadsheetId, `${tab}!1:1`))[0] ?? []
+  const have = raw.map(normaliseHeader)
+  const missing = required.filter((r) => !have.includes(normaliseHeader(r)))
+  if (missing.length === 0) return have
+
+  // Fill gaps so new headers land after the last existing column
+  const padded = [...raw]
+  while (padded.length < have.length) padded.push('')
+  const start = padded.length
+  const range = `${tab}!${columnLetter(start)}1:${columnLetter(start + missing.length - 1)}1`
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}?valueInputOption=RAW`
+  const res = await fetchWithTimeout(url, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ values: [missing] }),
+  })
+  if (!res.ok) throw new Error(`Sheets header update failed ${res.status}: ${await res.text()}`)
+  return [...have, ...missing.map(normaliseHeader)]
+}

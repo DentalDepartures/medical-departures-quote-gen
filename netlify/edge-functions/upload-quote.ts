@@ -2,7 +2,7 @@
 // Env: GOOGLE_SERVICE_ACCOUNT_JSON, TRACKER_SPREADSHEET_ID (defaults to the Clinic App spreadsheet),
 //      TRACKER_TAB (optional, default "Quotes Tracker")
 
-import { CORS, SCOPES, driveUpload, env, extractDriveFolderId, getAccessToken, json, sheetsAppend } from '../edge-lib/google.ts'
+import { CORS, SCOPES, driveUpload, ensureHeaders, env, extractDriveFolderId, getAccessToken, json, sheetsAppend } from '../edge-lib/google.ts'
 
 export default async (request: Request) => {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS })
@@ -48,7 +48,9 @@ export default async (request: Request) => {
     const trackerTab = env('TRACKER_TAB', 'Quotes Tracker')
     if (trackerId) {
       const createdTime = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Bangkok' })
-      await sheetsAppend(token, trackerId, `${trackerTab}!A:I`, [[
+      // Columns A–H are the tracker's existing layout; quote_id is created at the end if missing
+      const headers = await ensureHeaders(token, trackerId, trackerTab, ['quote_id'])
+      const row = [
         quoteDate ?? '',
         createdTime,
         brand ?? '',
@@ -57,8 +59,11 @@ export default async (request: Request) => {
         webViewLink,
         agentName ?? '',
         uploadError ? `Drive upload failed: ${uploadError}` : '',
-        quoteId ?? '',
-      ]])
+      ]
+      const idCol = headers.indexOf('quote_id')
+      while (row.length <= idCol) row.push('')
+      row[idCol] = quoteId ?? ''
+      await sheetsAppend(token, trackerId, `${trackerTab}!A:Z`, [row])
     }
 
     if (uploadError) return json({ ok: false, error: uploadError, webViewLink: '' }, 502)
