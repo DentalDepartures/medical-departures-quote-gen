@@ -4,6 +4,8 @@ export interface AgentProfile {
   phone: string
 }
 
+export type Brand = 'DD' | 'MD'
+
 export interface QuoteData {
   // Patient
   patientName: string | null
@@ -33,15 +35,24 @@ export interface QuoteData {
   // Notes
   importantNotes: string | null
 
-  // PDF generation — template URL from clinic row (not editable)
+  // Images (Drive links or direct URLs) — drawn by the app
+  clinicImageUrl: string | null
+  beforeAfterImageUrl: string | null
+  doctorImageUrl: string | null
+
+  // Legacy per-clinic template override. Empty = use the brand template shipped with the app.
   templatePdfUrl: string | null
 
-  // Drive — Final Quote folder URL for this clinic/doctor row
+  // Drive — folder where finished quote PDFs are saved
   googleFolder: string | null
+
+  // Set at generation time
+  quoteId?: string
 }
 
+/** One row of the Clinic App sheet. Column order does not matter — rows are mapped by header name. */
 export interface ClinicRow {
-  brand: 'DD' | 'MD'
+  brand: Brand
   clinic_name: string
   location: string
   google_folder: string
@@ -51,8 +62,9 @@ export interface ClinicRow {
   status: 'active' | 'inactive' | 'error'
   notes: string
   template_pdf_url: string
-  canva_template: string
-  canva_folder: string
+  clinic_image_url: string
+  before_after_image_url: string
+  doctor_image_url: string
 }
 
 export interface SelectedClinic {
@@ -61,14 +73,46 @@ export interface SelectedClinic {
   google_folder: string
   clinic_profile_url: string
   template_pdf_url: string
-  canva_template: string
-  canva_folder: string
+  clinic_image_url: string
+  before_after_image_url: string
 }
 
 export interface SelectedDoctor {
   surgeon_name: string
   accreditations: string
   template_pdf_url: string
+  doctor_image_url: string
 }
 
-export type AppStep = 'paste' | 'review' | 'done'
+export const NO_DOCTOR = 'No Doctor'
+
+export type AppStep = 'paste' | 'review' | 'done' | 'add-clinic'
+
+// ── Add-clinic (scraped from the DD/MD profile page) ─────────────────────────
+export interface ScrapedDoctor {
+  name: string
+  credentials: string
+  imageUrl: string | null
+}
+
+export interface ScrapedClinic {
+  brand: Brand
+  profileUrl: string
+  name: string
+  location: string
+  galleryImages: string[]
+  beforeAfterImages: string[]
+  doctors: ScrapedDoctor[]
+}
+
+export interface NewClinicPayload {
+  brand: Brand
+  clinicName: string
+  location: string
+  profileUrl: string
+  clinicImageUrl: string | null
+  beforeAfterImageUrl: string | null
+  doctors: { name: string; credentials: string; imageUrl: string | null }[]
+  agentName: string
+  agentEmail: string
+}

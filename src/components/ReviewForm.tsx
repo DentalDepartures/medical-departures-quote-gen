@@ -163,6 +163,13 @@ function QuoteEditor({
           <ReadOnlyField label="Location" value={q.clinicLocation} />
         </div>
         <ReadOnlyField label="Clinic Profile URL" value={q.clinicProfileUrl} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <ReadOnlyField label="Doctor" value={q.surgeonName} />
+          <ReadOnlyField label="Doctor credentials" value={q.accreditations} />
+        </div>
+        <p className="text-xs" style={{ color: '#888' }}>
+          Clinic, location, doctor and photos come from the clinic list. To change them, go back and pick a different clinic or doctor, or add the clinic again.
+        </p>
       </Section>
 
       {/* Pricing */}

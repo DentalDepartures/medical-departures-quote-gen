@@ -25,8 +25,16 @@
   path = "/api/clinics"
 
 [[edge_functions]]
-  function = "fetch-template"
-  path = "/api/fetch-template"
+  function = "fetch-file"
+  path = "/api/fetch-file"
+
+[[edge_functions]]
+  function = "scrape-clinic"
+  path = "/api/scrape-clinic"
+
+[[edge_functions]]
+  function = "add-clinic"
+  path = "/api/add-clinic"
 
 [[edge_functions]]
   function = "report-error"

@@ -106,9 +106,10 @@ export async function extractQuoteData(rawText: string): Promise<QuoteData[]> {
     }
   }
 
-  // 2. Local-dev fallback — direct call (VITE key is dev-only; never set in production)
+  // 2. Local-dev fallback only — a direct browser call is never used in production
   if (networkFailure) {
-    const apiKey = (import.meta.env.DEV ? import.meta.env.VITE_ANTHROPIC_API_KEY : null) || getApiKey()
+    if (!import.meta.env.DEV) throw new Error('The extraction service is unreachable. Check your connection and try again.')
+    const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY || getApiKey()
     if (!apiKey) throw new Error('NO_API_KEY')
     return callAnthropic(rawText, apiKey)
   }

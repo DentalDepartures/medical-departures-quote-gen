@@ -1,32 +1,16 @@
-import { useState, useEffect } from 'react'
-import type { AgentProfile, QuoteData, ClinicRow, SelectedClinic, SelectedDoctor } from './types'
+import { useState, useEffect, useCallback } from 'react'
+import type { AgentProfile, QuoteData, ClinicRow, SelectedClinic, SelectedDoctor, AppStep } from './types'
 import { extractQuoteData } from './lib/extraction'
 import { generateQuotePDF } from './lib/pdfService'
 import { BrandProvider, useBrand } from './contexts/BrandContext'
-import { fetchClinicRows } from './lib/clinicsApi'
+import { fetchClinicRows, uploadQuote, reportError } from './lib/api'
+import { getProfile } from './lib/storage'
 
-import { uploadQuote } from './lib/uploadQuote'
 import PasteInput from './components/PasteInput'
 import ReviewForm from './components/ReviewForm'
 import QuoteDone from './components/QuoteDone'
 import ApiKeySetup from './components/ApiKeySetup'
-
-async function reportError(params: {
-  errorType: 'extraction' | 'pdf' | 'api_key' | 'network' | 'unknown'
-  message: string
-  step: string
-  patientName?: string | null
-  agentName?: string | null
-  agentEmail?: string | null
-}) {
-  try {
-    await fetch('/api/report-error', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...params, timestamp: new Date().toISOString() }),
-    })
-  } catch { /* never block the UI */ }
-}
+import AddClinic from './components/AddClinic'
 
 function todayDDMMYYYY(): string {
   const d = new Date()
@@ -37,7 +21,7 @@ function todayDDMMYYYY(): string {
 
 function AppContent() {
   const { brand } = useBrand()
-  const [step, setStep] = useState<'paste' | 'review' | 'done'>('paste')
+  const [step, setStep] = useState<AppStep>('paste')
   const [profile, setProfile] = useState<AgentProfile | null>(null)
   const [quotes, setQuotes] = useState<QuoteData[] | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -47,21 +31,26 @@ function AppContent() {
   const [pendingRawText, setPendingRawText] = useState<string | null>(null)
   const [pendingClinic, setPendingClinic] = useState<SelectedClinic | null>(null)
   const [pendingDoctor, setPendingDoctor] = useState<SelectedDoctor | null>(null)
+  const [preselectClinic, setPreselectClinic] = useState<string | null>(null)
 
-  // Clinic rows — fetched live from Google Sheet via Netlify function
+  // Clinic rows — fetched live from the Google Sheet via the clinics edge function
   const [clinicRows, setClinicRows] = useState<ClinicRow[]>([])
   const [clinicsLoading, setClinicsLoading] = useState(true)
   const [clinicsError, setClinicsError] = useState<string | null>(null)
 
-  useEffect(() => {
-    fetchClinicRows()
-      .then(setClinicRows)
-      .catch((err: unknown) => {
-        const msg = err instanceof Error ? err.message : String(err)
-        setClinicsError(msg)
-      })
-      .finally(() => setClinicsLoading(false))
+  const loadClinics = useCallback(async () => {
+    setClinicsLoading(true)
+    setClinicsError(null)
+    try {
+      setClinicRows(await fetchClinicRows())
+    } catch (err: unknown) {
+      setClinicsError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setClinicsLoading(false)
+    }
   }, [])
+
+  useEffect(() => { void loadClinics() }, [loadClinics])
 
   async function handleGenerate(
     rawText: string,
@@ -81,8 +70,11 @@ function AppContent() {
           quoteDate: today,
           templatePdfUrl: null,
           googleFolder: null,
-          pricePrefix: null,
-          // override with clinic selection
+          pricePrefix: q.pricePrefix ?? null,
+          clinicImageUrl: null,
+          beforeAfterImageUrl: null,
+          doctorImageUrl: null,
+          // Clinic facts always come from the sheet, never from the pasted text
           ...(clinic
             ? {
                 clinicName: clinic.clinic_name,
@@ -90,14 +82,16 @@ function AppContent() {
                 clinicProfileUrl: clinic.clinic_profile_url,
                 templatePdfUrl: clinic.template_pdf_url || null,
                 googleFolder: clinic.google_folder || null,
+                clinicImageUrl: clinic.clinic_image_url || null,
+                beforeAfterImageUrl: clinic.before_after_image_url || null,
               }
             : {}),
-          // override with doctor selection — template_pdf_url is per clinic+doctor row
           ...(doctor
             ? {
                 surgeonName: doctor.surgeon_name,
                 accreditations: doctor.accreditations,
-                templatePdfUrl: doctor.template_pdf_url || null,
+                templatePdfUrl: doctor.template_pdf_url || clinic?.template_pdf_url || null,
+                doctorImageUrl: doctor.doctor_image_url || null,
               }
             : {}),
         })),
@@ -112,13 +106,7 @@ function AppContent() {
         setShowApiKeyModal(true)
       } else {
         setExtractError(msg)
-        void reportError({
-          errorType: 'extraction',
-          message: msg,
-          step: 'Quote extraction',
-          agentName: p.name,
-          agentEmail: p.email,
-        })
+        void reportError({ errorType: 'extraction', message: msg, step: 'Quote extraction', agentName: p.name, agentEmail: p.email })
       }
     } finally {
       setIsLoading(false)
@@ -140,38 +128,30 @@ function AppContent() {
     setIsGenerating(true)
     try {
       const failures: string[] = []
+      const finished: QuoteData[] = []
       for (const quote of data) {
         try {
-          const { pdfBytes, filename } = await generateQuotePDF(quote, profile)
+          const { pdfBytes, filename, quoteId } = await generateQuotePDF(quote, profile, brand)
+          finished.push({ ...quote, quoteId })
           try {
-            await uploadQuote({ pdfBytes, filename, quote, agent: profile, brand })
+            await uploadQuote({ pdfBytes, filename, quoteId, quote, agent: profile, brand })
           } catch (uploadErr) {
-            failures.push(`${quote.treatmentName || 'Quote'} — upload failed: ${String(uploadErr)}`)
+            failures.push(`${quote.treatmentName || 'Quote'} — the PDF downloaded but could not be saved to Drive: ${String(uploadErr)}`)
           }
         } catch (pdfErr) {
           const msg = String(pdfErr)
+          finished.push(quote)
           failures.push(`${quote.treatmentName || 'Quote'} — PDF failed: ${msg}`)
-          void reportError({
-            errorType: 'pdf',
-            message: msg,
-            step: 'PDF generation / download',
-            patientName: quote.patientName,
-            agentName: profile.name,
-            agentEmail: profile.email,
-          })
+          void reportError({ errorType: 'pdf', message: msg, step: 'PDF generation / download', patientName: quote.patientName, agentName: profile.name, agentEmail: profile.email })
         }
       }
       if (failures.length > 0) {
-        alert(
-          `⚠ ${failures.length} of ${data.length} quotes had issues:\n\n` +
-          failures.join('\n')
-        )
+        alert(`⚠ ${failures.length} of ${data.length} quotes had issues:\n\n${failures.join('\n')}`)
       }
-      setQuotes(data)
+      setQuotes(finished)
       setStep('done')
     } catch (err) {
-      const msg = String(err)
-      alert('Unexpected error: ' + msg)
+      alert('Unexpected error: ' + String(err))
     } finally {
       setIsGenerating(false)
     }
@@ -186,6 +166,21 @@ function AppContent() {
   // Filter clinic rows by active brand (case-insensitive)
   const brandRows = clinicRows.filter((r) => r.brand.trim().toUpperCase() === brand.toUpperCase())
 
+  if (step === 'add-clinic') {
+    const agent = profile ?? getProfile() ?? { name: '', email: '', phone: '' }
+    return (
+      <AddClinic
+        agent={agent}
+        onCancel={() => setStep('paste')}
+        onDone={async (clinicName) => {
+          setPreselectClinic(clinicName)
+          await loadClinics()
+          setStep('paste')
+        }}
+      />
+    )
+  }
+
   if (step === 'paste') {
     return (
       <>
@@ -197,6 +192,8 @@ function AppContent() {
           onGenerate={handleGenerate}
           isLoading={isLoading}
           error={extractError}
+          onAddClinic={(p) => { setProfile(p); setStep('add-clinic') }}
+          preselectClinic={preselectClinic}
         />
         {showApiKeyModal && (
           <ApiKeySetup

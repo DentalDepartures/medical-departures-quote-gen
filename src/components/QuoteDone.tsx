@@ -37,18 +37,15 @@ export default function QuoteDone({ quotes, onNewQuote }: Props) {
           <strong>{quotes[0]?.patientName || 'Patient'}</strong>
         </p>
 
-        {count > 1 ? (
-          <div className="flex flex-col gap-1 mb-8">
-            {quotes.map((q, i) => (
-              <p key={i} className="text-sm text-gray-400">{q.treatmentName || `Procedure ${i + 1}`}</p>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-gray-400 mb-8">
-            {quotes[0]?.treatmentName || 'Treatment'}
-            {quotes[0]?.clinicName ? ` · ${quotes[0].clinicName}` : ''}
-          </p>
-        )}
+        <div className="flex flex-col gap-1 mb-8">
+          {quotes.map((q, i) => (
+            <p key={i} className="text-sm text-gray-400">
+              {q.treatmentName || `Procedure ${i + 1}`}
+              {q.clinicName ? ` · ${q.clinicName}` : ''}
+              {q.quoteId ? <span className="ml-2 font-mono text-xs" style={{ color: '#aaa' }}>{q.quoteId}</span> : null}
+            </p>
+          ))}
+        </div>
 
         <button
           onClick={onNewQuote}
@@ -67,8 +64,8 @@ export default function QuoteDone({ quotes, onNewQuote }: Props) {
 
         <p className="text-xs text-gray-400 mt-8">
           {count > 1
-            ? `${count} PDF files have been saved to your downloads folder.`
-            : 'The PDF has been saved to your downloads folder.'}
+            ? `${count} PDF files have been saved to your downloads folder and to the clinic's Drive folder.`
+            : "The PDF has been saved to your downloads folder and to the clinic's Drive folder."}
         </p>
       </div>
     </div>

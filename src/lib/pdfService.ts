@@ -1,18 +1,16 @@
-import type { QuoteData, AgentProfile } from '../types'
-import { generateMDQuotePDFOverlay } from './pdfGeneratorMDOverlay'
+import type { QuoteData, AgentProfile, Brand } from '../types'
+import { generateQuotePDFBytes } from './pdfOverlay'
+import { fetchBytes, prepareImage } from './imagePrep'
 
 export async function generateQuotePDF(
   quote: QuoteData,
   agent: AgentProfile,
-): Promise<{ pdfBytes: Uint8Array; filename: string }> {
-  if (!quote.templatePdfUrl) {
-    throw new Error(
-      'No PDF template configured for this clinic. Ask your admin to add a template_pdf_url in the Clinic App sheet.',
-    )
-  }
-  const { pdfBytes, filename } = await generateMDQuotePDFOverlay(quote, agent)
+  brand: Brand,
+): Promise<{ pdfBytes: Uint8Array; filename: string; quoteId: string }> {
+  const result = await generateQuotePDFBytes(quote, agent, brand, { fetchBytes, prepareImage })
 
   // Trigger browser download
+  const { pdfBytes, filename } = result
   const blob = new Blob(
     [pdfBytes.buffer.slice(pdfBytes.byteOffset, pdfBytes.byteOffset + pdfBytes.byteLength) as ArrayBuffer],
     { type: 'application/pdf' },
@@ -26,5 +24,5 @@ export async function generateQuotePDF(
   document.body.removeChild(a)
   URL.revokeObjectURL(blobUrl)
 
-  return { pdfBytes, filename }
+  return result
 }

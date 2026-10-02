@@ -18,6 +18,8 @@ interface Props {
   ) => void
   isLoading: boolean
   error: string | null
+  onAddClinic: (profile: AgentProfile) => void
+  preselectClinic?: string | null
 }
 
 interface FieldErrors {
@@ -29,7 +31,7 @@ interface FieldErrors {
   text?: string
 }
 
-export default function PasteInput({ rows, clinicsLoading, clinicsError, totalClinicRowsLoaded, onGenerate, isLoading, error }: Props) {
+export default function PasteInput({ rows, clinicsLoading, clinicsError, totalClinicRowsLoaded, onGenerate, isLoading, error, onAddClinic, preselectClinic }: Props) {
   const { config } = useBrand()
   const saved = getProfile()
   const [name, setName] = useState(saved?.name ?? '')
@@ -237,7 +239,7 @@ export default function PasteInput({ rows, clinicsLoading, clinicsError, totalCl
               className="text-xs rounded-lg px-3 py-2 mb-3"
               style={{ background: '#fffbeb', border: '1px solid #fde68a', color: '#92400e' }}
             >
-              ⚠ {totalClinicRowsLoaded} clinic row(s) loaded from sheet, but none match the current brand tab. Check that the Brand column (column A) in the sheet contains exactly "MD" or "DD".
+              ⚠ {totalClinicRowsLoaded} clinic row(s) loaded from sheet, but none match the current brand tab. Check that the brand column in the sheet contains exactly "MD" or "DD".
             </div>
           )}
           {!clinicsLoading && !clinicsError && (totalClinicRowsLoaded ?? 0) === 0 && (
@@ -245,7 +247,7 @@ export default function PasteInput({ rows, clinicsLoading, clinicsError, totalCl
               className="text-xs rounded-lg px-3 py-2 mb-3"
               style={{ background: '#fffbeb', border: '1px solid #fde68a', color: '#92400e' }}
             >
-              ⚠ No clinic rows returned from the sheet. Check that rows have status "active" in column L.
+              ⚠ No clinic rows returned from the sheet. Check that rows have status "Active" in the status column.
             </div>
           )}
 
@@ -253,6 +255,8 @@ export default function PasteInput({ rows, clinicsLoading, clinicsError, totalCl
             rows={rows}
             loading={clinicsLoading}
             onSelectionChange={handleSelectionChange}
+            onAddClinic={() => { saveProfile({ name, email, phone }); onAddClinic({ name, email, phone }) }}
+            preselectClinic={preselectClinic}
             clinicError={fieldErrors.clinic}
             doctorError={fieldErrors.doctor}
           />
