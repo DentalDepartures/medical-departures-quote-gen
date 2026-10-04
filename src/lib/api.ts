@@ -1,4 +1,7 @@
 import type { ClinicRow, QuoteData, AgentProfile, ScrapedClinic, NewClinicPayload } from '../types'
+import { getAdminKey } from './appMode'
+
+const adminHeaders = (): Record<string, string> => (getAdminKey() ? { 'x-admin-key': getAdminKey() } : {})
 
 async function parseJson<T>(res: Response, what: string): Promise<T> {
   const raw = await res.text()
@@ -18,12 +21,12 @@ export async function fetchClinicRows(): Promise<ClinicRow[]> {
 }
 
 export async function scrapeClinic(url: string): Promise<ScrapedClinic> {
-  return parseJson<ScrapedClinic>(await fetch(`/api/scrape-clinic?url=${encodeURIComponent(url)}`), 'Clinic page reader')
+  return parseJson<ScrapedClinic>(await fetch(`/api/scrape-clinic?url=${encodeURIComponent(url)}`, { headers: adminHeaders() }), 'Clinic page reader')
 }
 
 export async function addClinic(payload: NewClinicPayload): Promise<{ ok: boolean; folder: string; rowsAdded: number; warnings?: string[] }> {
   return parseJson(
-    await fetch('/api/add-clinic', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }),
+    await fetch('/api/add-clinic', { method: 'POST', headers: { 'Content-Type': 'application/json', ...adminHeaders() }, body: JSON.stringify(payload) }),
     'Add clinic',
   )
 }

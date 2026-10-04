@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { ClinicRow, SelectedClinic, SelectedDoctor } from '../types'
 import { NO_DOCTOR } from '../types'
 import { useBrand } from '../contexts/BrandContext'
+import { IS_ADMIN } from '../lib/appMode'
 
 interface Props {
   rows: ClinicRow[]
@@ -122,17 +123,21 @@ export default function ClinicDoctorSelector({
               {c.clinic_name}{c.location ? ` — ${c.location}` : ''}
             </option>
           ))}
-          <option value="__add__">＋ Add a new clinic…</option>
+          {IS_ADMIN && <option value="__add__">＋ Add a new clinic…</option>}
         </select>
         {clinicError && <p className="text-xs mt-1" style={{ color: '#e51b24' }}>{clinicError}</p>}
-        <button
-          type="button"
-          onClick={onAddClinic}
-          className="text-xs mt-2 font-semibold"
-          style={{ color: config.primary, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
-        >
-          Clinic not in the list? Add it from its {config.name} page →
-        </button>
+        {IS_ADMIN ? (
+          <button
+            type="button"
+            onClick={onAddClinic}
+            className="text-xs mt-2 font-semibold"
+            style={{ color: config.primary, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+          >
+            Clinic not in the list? Add it from its {config.name} page →
+          </button>
+        ) : (
+          <p className="text-xs mt-2" style={{ color: '#999' }}>Clinic not in the list? Ask Yana to add it.</p>
+        )}
       </div>
 
       <div>

@@ -3,11 +3,13 @@
 // (name, credentials, headshot). Deterministic HTML parsing — no AI, no credits.
 // GET /api/scrape-clinic?url=https://www.dentaldepartures.com/dentist/<slug>
 
-import { CORS, fetchWithTimeout, json } from '../edge-lib/google.ts'
+import { CORS, fetchWithTimeout, json, requireAdmin } from '../edge-lib/google.ts'
 import { brandFromUrl, parseClinic } from '../edge-lib/scrape.ts'
 
 export default async (request: Request) => {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS })
+  const denied = requireAdmin(request)
+  if (denied) return denied
 
   const { searchParams } = new URL(request.url)
   const url = (searchParams.get('url') ?? '').trim()

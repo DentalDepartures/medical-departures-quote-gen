@@ -8,7 +8,7 @@
 
 import {
   CORS, SCOPES, driveCreateFolder, driveUpload, env, fetchWithTimeout, getAccessToken, json,
-  objectToRow, ensureHeaders, sheetsAppend, sheetsGet, rowsToObjects,
+  objectToRow, ensureHeaders, sheetsAppend, sheetsGet, rowsToObjects, requireAdmin,
 } from '../edge-lib/google.ts'
 
 type Brand = 'DD' | 'MD'
@@ -94,6 +94,8 @@ async function copyImage(
 export default async (request: Request) => {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS })
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
+  const denied = requireAdmin(request)
+  if (denied) return denied
 
   let p: Payload
   try {

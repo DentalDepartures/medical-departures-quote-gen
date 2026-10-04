@@ -289,3 +289,15 @@ export async function ensureHeaders(
   if (!res.ok) throw new Error(`Sheets header update failed ${res.status}: ${await res.text()}`)
   return [...have, ...missing.map(normaliseHeader)]
 }
+
+/**
+ * Clinic onboarding is restricted: when ADMIN_PASSWORD is set, the request must carry it in `x-admin-key`.
+ * Returns an error Response to send back, or null when the request is allowed.
+ */
+export function requireAdmin(request: Request): Response | null {
+  const expected = (Deno.env.get('ADMIN_PASSWORD') ?? '').trim()
+  if (!expected) return null
+  const got = (request.headers.get('x-admin-key') ?? '').trim()
+  if (got === expected) return null
+  return json({ error: got ? 'Admin password is not correct.' : 'This action needs the admin password.' }, 401)
+}

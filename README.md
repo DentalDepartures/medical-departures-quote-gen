@@ -60,7 +60,18 @@ Deploy. The site URL is whatever Netlify assigns; rename it in *Site configurati
    clinic page with UTMs, the Drive folder has the PDF, the tracker has a row with the quote ID.
 4. Repeat on the MD tab with `https://www.medicaldepartures.com/clinic/masterpiece-hospital`.
 
+## Two sites, one codebase (`VITE_APP_MODE`)
+
+| site | `VITE_APP_MODE` | who | what |
+| --- | --- | --- | --- |
+| dental-medical-departures-quote-gen | `agent` (default) | sales agents | quote generator; clinic list only, no onboarding UI |
+| quote-gen-clinic-admin | `admin` | Yana | Add-clinic screen only, behind the admin password |
+
+`ADMIN_PASSWORD` (set on **both** sites) is checked server-side by `/api/scrape-clinic` and `/api/add-clinic`,
+so onboarding cannot be triggered from the agents' site even by calling the API directly. The admin site asks
+for the password once and keeps it in the browser.
+
 ## Going live
-Point the production Netlify site at `v2` (or merge to `main`) and set the same env vars with the real
-spreadsheet ID and the real DD/MD Quote PDFs folder IDs. The columns are created automatically on first use;
-the service account already has access.
+`main` is deployed to the agents' site; the admin site deploys from the same branch with `VITE_APP_MODE=admin`.
+Both use the real spreadsheet ID and the real DD/MD Quote PDFs folder IDs. The columns are created automatically
+on first use; the service account already has access.

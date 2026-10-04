@@ -11,6 +11,8 @@ import ReviewForm from './components/ReviewForm'
 import QuoteDone from './components/QuoteDone'
 import ApiKeySetup from './components/ApiKeySetup'
 import AddClinic from './components/AddClinic'
+import AdminApp from './components/AdminApp'
+import { IS_ADMIN } from './lib/appMode'
 
 function todayDDMMYYYY(): string {
   const d = new Date()
@@ -247,7 +249,7 @@ function AppContent() {
 export default function App() {
   return (
     <BrandProvider>
-      <AppContent />
+      {IS_ADMIN ? <AdminApp /> : <AppContent />}
     </BrandProvider>
   )
 }

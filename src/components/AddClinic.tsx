@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { AgentProfile, ScrapedClinic, NewClinicPayload } from '../types'
 import { useBrand } from '../contexts/BrandContext'
+import { clearAdminKey } from '../lib/appMode'
 import { scrapeClinic, addClinic } from '../lib/api'
 import { proxiedUrl } from '../lib/imagePrep'
 
@@ -213,7 +214,14 @@ export default function AddClinic({ agent, onDone, onCancel }: Props) {
               {loading ? 'Reading page…' : scraped ? 'Re-read page' : 'Read clinic page'}
             </button>
           </form>
-          {error && <div className="text-sm mt-3" style={{ color: '#e51b24' }}>{error}</div>}
+          {error && (
+            <div className="text-sm mt-3" style={{ color: '#e51b24' }}>
+              {error}
+              {/admin password/i.test(error) && (
+                <> {' '}<button type="button" onClick={() => { clearAdminKey(); window.location.reload() }} style={{ color: '#e51b24', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline' }}>Re-enter password</button></>
+              )}
+            </div>
+          )}
         </div>
 
         {scraped && (
