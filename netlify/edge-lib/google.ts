@@ -188,18 +188,49 @@ export async function driveUpload(params: {
   body.set(bytes, offset); offset += bytes.length
   body.set(closeBytes, offset)
 
-  const res = await fetchWithTimeout(
+  const send = () => fetchWithTimeout(
     'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id,webViewLink',
     {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
       body,
     },
-    30000,
+    // A quote PDF can be a few MB; the first attempt gets a generous window.
+    60000,
   )
+
+  let res: Response
+  try {
+    res = await send()
+  } catch (err) {
+    // Timed out or the connection dropped. The upload may still have completed on Drive's side,
+    // so look for the file before sending it again — that keeps retries from creating duplicates.
+    const existing = await driveFindFile(token, folderId, filename)
+    if (existing) return existing
+    res = await send()
+  }
   if (!res.ok) throw new Error(`Drive upload failed ${res.status}: ${await res.text()}`)
   const data = await res.json() as { id: string; webViewLink?: string }
   return { id: data.id, webViewLink: data.webViewLink ?? `https://drive.google.com/file/d/${data.id}/view` }
+}
+
+/** Looks for a file by exact name inside a folder. Returns null when it is not there (or the lookup fails). */
+export async function driveFindFile(
+  token: string, folderId: string, filename: string,
+): Promise<{ id: string; webViewLink: string } | null> {
+  try {
+    const q = `name = '${filename.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}' and '${folderId}' in parents and trashed = false`
+    const res = await fetchWithTimeout(
+      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&supportsAllDrives=true&includeItemsFromAllDrives=true&fields=files(id,webViewLink)&pageSize=1`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    )
+    if (!res.ok) return null
+    const data = await res.json() as { files?: { id: string; webViewLink?: string }[] }
+    const f = data.files?.[0]
+    return f ? { id: f.id, webViewLink: f.webViewLink ?? `https://drive.google.com/file/d/${f.id}/view` } : null
+  } catch {
+    return null
+  }
 }
 
 // ── Sheets helpers ────────────────────────────────────────────────────────────
