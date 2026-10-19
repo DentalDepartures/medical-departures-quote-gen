@@ -25,9 +25,13 @@ export default async (request: Request) => {
         Accept: 'text/html',
       },
     }, 20000)
-    if (!res.ok) return json({ error: `Clinic page returned ${res.status}` }, 502)
+    // The MD site sometimes serves a live, fully rendered clinic profile with a 404 status
+    // (e.g. /clinic/ruby-plastic-surgery), so a 404 still gets parsed; a page with no clinic
+    // name in it is a genuinely missing clinic.
+    if (!res.ok && res.status !== 404) return json({ error: `Clinic page returned ${res.status}` }, 502)
     const html = await res.text()
     const clinic = parseClinic(html, url, brand)
+    if (!clinic.name && !res.ok) return json({ error: `Clinic page returned ${res.status}` }, 502)
     if (!clinic.name) return json({ error: 'Could not find the clinic name on that page. Is it a clinic profile URL?' }, 422)
     return json(clinic)
   } catch (err) {
