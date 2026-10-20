@@ -22,7 +22,7 @@ export default async (request: Request) => {
       googleFolder?: string | null
       quoteDate?: string | null
     }
-    const { pdfBase64, filename, quoteId, patientName, clinicName, brand, agentName, googleFolder, quoteDate } = body
+    const { pdfBase64, filename, quoteId, patientName, clinicName, brand, agentName, agentEmail, googleFolder, quoteDate } = body
     if (!pdfBase64 || !filename) return json({ error: 'pdfBase64 and filename are required' }, 400)
 
     const pdfBytes = Uint8Array.from(atob(pdfBase64), (c) => c.charCodeAt(0))
@@ -47,12 +47,18 @@ export default async (request: Request) => {
     const trackerId = env('TRACKER_SPREADSHEET_ID', env('CLINIC_APP_SPREADSHEET_ID', ''))
     const trackerTab = env('TRACKER_TAB', 'Quotes Tracker')
     if (trackerId) {
-      const createdTime = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Bangkok' })
-      // Columns A–H are the tracker's existing layout; quote_id is created at the end if missing
-      const headers = await ensureHeaders(token, trackerId, trackerTab, ['quote_id'])
+      const now = new Date()
+      const createdTime = now.toLocaleString('en-GB', { timeZone: 'Asia/Bangkok' })
+      // Bangkok is UTC+7 all year (no DST), so shifting the UTC clock gives local time
+      const createdIso = new Date(now.getTime() + 7 * 60 * 60 * 1000).toISOString().slice(0, 19).replace('T', ' ')
+      // The tracker's locale is en_US, so USER_ENTERED turns "05/10/2026" into 10 May and leaves
+      // "25/10/2026" as text. A leading apostrophe keeps both DD/MM cells as the text the team reads.
+      const asText = (v: string) => (v ? `'${v}` : '')
+      // Columns A–H are the tracker's existing layout; the extra columns are created at the end if missing
+      const headers = await ensureHeaders(token, trackerId, trackerTab, ['quote_id', 'agent_email', 'created_iso'])
       const row = [
-        quoteDate ?? '',
-        createdTime,
+        asText(quoteDate ?? ''),
+        asText(createdTime),
         brand ?? '',
         patientName ?? '',
         clinicName ?? '',
@@ -60,9 +66,18 @@ export default async (request: Request) => {
         agentName ?? '',
         uploadError ? `Drive upload failed: ${uploadError}` : '',
       ]
-      const idCol = headers.indexOf('quote_id')
-      while (row.length <= idCol) row.push('')
-      row[idCol] = quoteId ?? ''
+      const extra: Record<string, string> = {
+        quote_id: quoteId ?? '',
+        // One spelling per agent to count by (agent names are typed freely)
+        agent_email: (agentEmail ?? '').trim().toLowerCase(),
+        // "YYYY-MM-DD HH:MM:SS" is read as a real date-time in any locale, so it sorts and filters
+        created_iso: createdIso,
+      }
+      for (const [name, value] of Object.entries(extra)) {
+        const col = headers.indexOf(name)
+        while (row.length <= col) row.push('')
+        row[col] = value
+      }
       await sheetsAppend(token, trackerId, `${trackerTab}!A:Z`, [row])
     }
 
