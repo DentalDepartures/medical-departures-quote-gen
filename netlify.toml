@@ -29,6 +29,10 @@
   path = "/api/fetch-file"
 
 [[edge_functions]]
+  function = "agents"
+  path = "/api/agents"
+
+[[edge_functions]]
   function = "scrape-clinic"
   path = "/api/scrape-clinic"
 

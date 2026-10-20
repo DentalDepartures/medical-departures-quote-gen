@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import type { AgentProfile, ClinicRow, SelectedClinic, SelectedDoctor } from '../types'
 import { getProfile, saveProfile } from '../lib/storage'
+import { fetchAgents } from '../lib/api'
 import { useBrand } from '../contexts/BrandContext'
 import TabBar from './TabBar'
 import ClinicDoctorSelector from './ClinicDoctorSelector'
@@ -43,6 +44,24 @@ export default function PasteInput({ rows, clinicsLoading, clinicsError, totalCl
   const [selectedClinic, setSelectedClinic] = useState<SelectedClinic | null>(null)
   const [selectedDoctor, setSelectedDoctor] = useState<SelectedDoctor | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [agents, setAgents] = useState<AgentProfile[]>([])
+
+  useEffect(() => {
+    void fetchAgents().then(setAgents)
+  }, [])
+
+  // The dropdown shows whichever listed agent matches the email currently in the form
+  const selectedAgent = agents.findIndex((a) => a.email.trim().toLowerCase() === email.trim().toLowerCase())
+
+  function pickAgent(value: string) {
+    const agent = agents[Number(value)]
+    if (!agent) return
+    setName(agent.name)
+    setEmail(agent.email)
+    setPhone(agent.phone)
+    setAgentSaved(false)
+    setFieldErrors((p) => ({ ...p, name: undefined, email: undefined, phone: undefined }))
+  }
 
   // Auto-save agent details with debounce
   useEffect(() => {
@@ -134,6 +153,31 @@ export default function PasteInput({ rows, clinicsLoading, clinicsError, totalCl
               </span>
             )}
           </div>
+
+          {agents.length > 0 && (
+            <div className="mb-3">
+              <label className="block text-xs font-semibold mb-1" style={{ color: '#58585a' }}>
+                Choose your name
+              </label>
+              <select
+                value={selectedAgent >= 0 ? String(selectedAgent) : ''}
+                onChange={(e) => pickAgent(e.target.value)}
+                style={{ ...inputStyle(), background: 'white', cursor: 'pointer' }}
+              >
+                <option value="" disabled>
+                  {name || email ? 'Not in the list — details typed below' : '— Select your name —'}
+                </option>
+                {agents.map((a, i) => (
+                  <option key={a.email || a.name} value={i}>
+                    {a.name}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs mt-1" style={{ color: '#999' }}>
+                Fills in your name, email and phone. Not listed? Just type your details below.
+              </p>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {/* Full Name */}

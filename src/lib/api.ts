@@ -20,6 +20,16 @@ export async function fetchClinicRows(): Promise<ClinicRow[]> {
   return data.rows ?? []
 }
 
+/** Ops agents for the "Choose your name" dropdown. Never throws — an empty list just hides the dropdown. */
+export async function fetchAgents(): Promise<AgentProfile[]> {
+  try {
+    const data = await parseJson<{ agents?: AgentProfile[] }>(await fetch('/api/agents'), 'Agents API')
+    return data.agents ?? []
+  } catch {
+    return []
+  }
+}
+
 export async function scrapeClinic(url: string): Promise<ScrapedClinic> {
   return parseJson<ScrapedClinic>(await fetch(`/api/scrape-clinic?url=${encodeURIComponent(url)}`, { headers: adminHeaders() }), 'Clinic page reader')
 }
