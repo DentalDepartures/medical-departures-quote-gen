@@ -32,7 +32,8 @@ Rules:
 - Each procedure with its own price, inclusions, exclusions gets its own object
 - Shared fields (patientName, clinicName, surgeonName, etc.) are duplicated across objects
 - price: the FINAL payable price only. If the text shows both an original price and a discounted/savings price, always use the discounted price. Strip all currency symbols and commas — plain number only
-- currency: ISO code — THB, USD, MXN, EUR, BRL, GBP, AUD, etc. Default to USD if unknown
+- currency: ISO code — THB, USD, MXN, EUR, BRL, GBP, AUD, IDR, etc. Default to USD if unknown
+- Indonesian Rupiah ("Rp", "IDR"): dots are thousand separators ("Rp 45.000.000" = 45000000) and "jt"/"juta" means million ("45 jt" = 45000000)
 - quoteDate: always return null — the date is set automatically by the application
 - Handle any language (Spanish, Portuguese, Thai, French, etc.)
 - clinicLocation: "City, Country" format

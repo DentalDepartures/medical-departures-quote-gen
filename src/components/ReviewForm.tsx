@@ -9,7 +9,7 @@ interface Props {
   isGenerating: boolean
 }
 
-const CURRENCIES = ['THB', 'USD', 'MXN', 'EUR', 'BRL', 'GBP', 'AUD', 'CAD', 'SGD', 'HKD']
+const CURRENCIES = ['THB', 'USD', 'MXN', 'EUR', 'BRL', 'GBP', 'AUD', 'CAD', 'SGD', 'HKD', 'IDR']
 
 const LIMITS = { inclusions: 30, exclusions: 7, notes: 23 }
 

@@ -29,7 +29,8 @@ Return a JSON ARRAY where each element matches this schema (null for missing fie
 === CORE OUTPUT RULES ===
 - Return ONLY the JSON array, zero other text
 - quoteDate: always return null
-- currency: ISO code (THB, USD, MXN, EUR, BRL, GBP, AUD, etc.) — default to USD if unknown
+- currency: ISO code (THB, USD, MXN, EUR, BRL, GBP, AUD, IDR, etc.) — default to USD if unknown
+- Indonesian Rupiah ("Rp", "IDR"): dots are thousand separators ("Rp 45.000.000" = 45000000) and "jt"/"juta" means million ("45 jt" = 45000000)
 - clinicLocation: "City, Country" format
 - accreditations: combine all accreditation details into one string
 - importantNotes: each note on its own line, prefixed with "- ". Use actual newlines between notes
