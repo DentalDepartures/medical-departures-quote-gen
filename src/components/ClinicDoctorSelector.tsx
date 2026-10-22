@@ -9,13 +9,15 @@ interface Props {
   loading: boolean
   onSelectionChange: (clinic: SelectedClinic | null, doctor: SelectedDoctor | null) => void
   onAddClinic: () => void
-  /** Clinic to pre-select (e.g. right after it was added). */
+  /** Clinic to pre-select (e.g. right after it was added): "name" or "name|location". */
   preselectClinic?: string | null
   clinicError?: string | null
   doctorError?: string | null
 }
 
 const key = (name: string) => name.trim().toLowerCase()
+/** A clinic is its name + location: two branches of a chain with the same name stay separate */
+const clinicKey = (c: { clinic_name: string; location: string }) => `${key(c.clinic_name)}|${key(c.location ?? '')}`
 const MANUAL = '__manual__'
 
 export default function ClinicDoctorSelector({
@@ -27,11 +29,11 @@ export default function ClinicDoctorSelector({
   const [manualName, setManualName] = useState('')
   const [manualCreds, setManualCreds] = useState('')
 
-  // Deduplicate clinics by case-insensitive clinic_name
+  // One entry per clinic (case-insensitive name + location)
   const clinics: SelectedClinic[] = []
   const seen = new Set<string>()
   for (const row of rows) {
-    const k = key(row.clinic_name)
+    const k = clinicKey(row)
     if (!seen.has(k)) {
       seen.add(k)
       clinics.push({
@@ -49,7 +51,7 @@ export default function ClinicDoctorSelector({
 
   // Doctors for the selected clinic — "No Doctor" first, then alphabetical
   const doctors = rows
-    .filter((r) => key(r.clinic_name) === selectedClinicKey)
+    .filter((r) => clinicKey(r) === selectedClinicKey)
     .sort((a, b) => {
       const an = a.surgeon_name.toLowerCase() === NO_DOCTOR.toLowerCase() ? 0 : 1
       const bn = b.surgeon_name.toLowerCase() === NO_DOCTOR.toLowerCase() ? 0 : 1
@@ -63,14 +65,14 @@ export default function ClinicDoctorSelector({
     doctor_image_url: row.doctor_image_url,
   })
 
-  function selectClinic(clinicKey: string) {
-    setSelectedClinicKey(clinicKey)
+  function selectClinic(k: string) {
+    setSelectedClinicKey(k)
     setSelectedDoctorIdx('')
     setManualName('')
     setManualCreds('')
-    const clinic = clinics.find((c) => key(c.clinic_name) === clinicKey) ?? null
+    const clinic = clinics.find((c) => clinicKey(c) === k) ?? null
     // Auto-pick when the clinic has a single row
-    const docs = rows.filter((r) => key(r.clinic_name) === clinicKey)
+    const docs = rows.filter((r) => clinicKey(r) === k)
     if (clinic && docs.length === 1) {
       setSelectedDoctorIdx('0')
       onSelectionChange(clinic, toDoctor(docs[0]))
@@ -95,7 +97,7 @@ export default function ClinicDoctorSelector({
 
   function handleDoctorChange(idx: string) {
     setSelectedDoctorIdx(idx)
-    const clinic = clinics.find((c) => key(c.clinic_name) === selectedClinicKey) ?? null
+    const clinic = clinics.find((c) => clinicKey(c) === selectedClinicKey) ?? null
     if (idx === MANUAL) {
       onSelectionChange(clinic, manualDoctor(manualName, manualCreds))
       return
@@ -107,15 +109,16 @@ export default function ClinicDoctorSelector({
   function handleManualChange(name: string, creds: string) {
     setManualName(name)
     setManualCreds(creds)
-    const clinic = clinics.find((c) => key(c.clinic_name) === selectedClinicKey) ?? null
+    const clinic = clinics.find((c) => clinicKey(c) === selectedClinicKey) ?? null
     onSelectionChange(clinic, manualDoctor(name, creds))
   }
 
   // Pre-select a clinic once its rows have arrived (used right after "Add clinic")
   useEffect(() => {
     if (!preselectClinic) return
-    const k = key(preselectClinic)
-    if (clinics.some((c) => key(c.clinic_name) === k) && selectedClinicKey !== k) selectClinic(k)
+    const [name, location] = preselectClinic.split('|')
+    const match = clinics.find((c) => key(c.clinic_name) === key(name) && (location === undefined || key(c.location) === key(location)))
+    if (match && selectedClinicKey !== clinicKey(match)) selectClinic(clinicKey(match))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preselectClinic, rows.length])
 
@@ -141,7 +144,7 @@ export default function ClinicDoctorSelector({
         >
           <option value="">{loading ? 'Loading clinics…' : '— Select clinic —'}</option>
           {clinics.map((c) => (
-            <option key={key(c.clinic_name)} value={key(c.clinic_name)}>
+            <option key={clinicKey(c)} value={clinicKey(c)}>
               {c.clinic_name}{c.location ? ` — ${c.location}` : ''}
             </option>
           ))}

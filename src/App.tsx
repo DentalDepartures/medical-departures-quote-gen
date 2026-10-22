@@ -179,8 +179,8 @@ function AppContent() {
         agent={agent}
         rows={clinicRows}
         onCancel={() => setStep('paste')}
-        onDone={async (clinicName, warnings, message) => {
-          setPreselectClinic(clinicName)
+        onDone={async (clinicName, warnings, message, location) => {
+          setPreselectClinic(location ? `${clinicName}|${location}` : clinicName)
           setClinicNotice({ clinic: clinicName, warnings, message })
           await loadClinics()
           setStep('paste')

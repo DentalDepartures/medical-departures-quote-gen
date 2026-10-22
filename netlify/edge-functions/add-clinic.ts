@@ -33,6 +33,21 @@ const ALLOWED_IMAGE_HOSTS = [
   'static.medicaldepartures.com', 'img.medicaldepartures.com',
 ]
 
+/** Profile URLs compared without scheme, www, query, hash or trailing slash */
+function sameUrl(a: string | undefined, b: string | undefined): boolean {
+  const n = (u: string | undefined) => (u ?? '').trim().toLowerCase()
+    .replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/[?#].*$/, '').replace(/\/+$/, '')
+  return !!n(a) && n(a) === n(b)
+}
+
+/** Rows of the clinic with this profile page; rows saved without a URL fall back to the same name + location */
+function rowsOfClinic(rows: Record<string, string>[], brand: Brand, profileUrl: string, name: string, location: string) {
+  const same = (x: string | undefined, y: string) => (x ?? '').trim().toLowerCase() === y.trim().toLowerCase()
+  return rows.filter((o) =>
+    (o.brand ?? '').toUpperCase() === brand && (o.status ?? '').toLowerCase() === 'active' &&
+    (o.clinic_profile_url ? sameUrl(o.clinic_profile_url, profileUrl) : same(o.clinic_name, name) && same(o.location, location)))
+}
+
 function safeName(s: string): string {
   return s.replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim()
 }
@@ -96,10 +111,7 @@ async function copyImage(
 /** Adds doctors to a clinic that is already in the tab: one row per new doctor, copying the clinic's own fields. */
 async function addDoctors(token: string, spreadsheetId: string, tab: string, p: Payload): Promise<Response> {
   const existing = rowsToObjects(await sheetsGet(token, spreadsheetId, `${tab}!A:Z`))
-  const clinicRows = existing.filter((o) =>
-    (o.brand ?? '').toUpperCase() === p.brand &&
-    (o.clinic_name ?? '').trim().toLowerCase() === p.clinicName.trim().toLowerCase() &&
-    (o.status ?? '').toLowerCase() === 'active')
+  const clinicRows = rowsOfClinic(existing, p.brand, p.profileUrl, p.clinicName, p.location)
   if (!clinicRows.length) return json({ error: `"${p.clinicName}" is not in the ${p.brand} clinic list yet — add the clinic instead.` }, 404)
 
   // The clinic's own fields come from its "No Doctor" row (or its first row)
@@ -171,17 +183,22 @@ export default async (request: Request) => {
 
     if (p.mode === 'add-doctors') return await addDoctors(token, spreadsheetId, tab, p)
 
-    // Refuse a duplicate active clinic (same brand + name, case-insensitive)
+    // Refuse a duplicate: the same profile page is already an active clinic. Clinics that only share a
+    // name (e.g. two branches of a chain in different cities) are different clinics.
     const existing = rowsToObjects(await sheetsGet(token, spreadsheetId, `${tab}!A:Z`))
-    const dup = existing.find((o) =>
-      (o.brand ?? '').toUpperCase() === p.brand &&
-      (o.clinic_name ?? '').trim().toLowerCase() === p.clinicName.trim().toLowerCase() &&
-      (o.status ?? '').toLowerCase() === 'active')
-    if (dup) return json({ error: `"${p.clinicName}" already exists for ${p.brand}. Pick it from the clinic list instead.` }, 409)
+    const dup = rowsOfClinic(existing, p.brand, p.profileUrl, p.clinicName, p.location)[0]
+    if (dup) {
+      return json({ error: `"${dup.clinic_name}" (${dup.location}) is already in the ${p.brand} clinic list with this profile page. Pick it from the clinic list instead.` }, 409)
+    }
 
-    // 1. Drive folder
+    // 1. Drive folder — named after the city too when another clinic already has this name,
+    //    so the two never share (or reuse) one folder
     const clinicName = safeName(p.clinicName)
-    const folder = await driveCreateFolder(token, `${clinicName} ${p.brand} Quotes`, parentFolderId)
+    const nameTaken = existing.some((o) =>
+      (o.brand ?? '').toUpperCase() === p.brand && (o.clinic_name ?? '').trim().toLowerCase() === clinicName.toLowerCase())
+    const city = safeName(p.location.split(',')[0] ?? '')
+    const folderName = nameTaken && city ? `${clinicName} - ${city} ${p.brand} Quotes` : `${clinicName} ${p.brand} Quotes`
+    const folder = await driveCreateFolder(token, folderName, parentFolderId)
 
     // 2. Images → Drive (stable source; the website may change)
     const warnings: string[] = []

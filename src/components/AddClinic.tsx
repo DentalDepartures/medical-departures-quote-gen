@@ -10,18 +10,20 @@ interface Props {
   agent: AgentProfile
   /** All Clinic App rows — used to spot a clinic that is already in the app */
   rows: ClinicRow[]
-  onDone: (clinicName: string, warnings: string[], message?: string) => void
+  /** location identifies the clinic when several share a name */
+  onDone: (clinicName: string, warnings: string[], message?: string, location?: string) => void
   onCancel: () => void
 }
 
-/** A clinic already in the Clinic App tab: its sheet name and the doctors it lists */
+/** A clinic already in the Clinic App tab: its sheet name, location and the doctors it lists */
 interface ExistingClinic {
   clinicName: string
+  location: string
   doctors: string[]
 }
 
 const norm = (s: string) => s.trim().toLowerCase()
-const normUrl = (u: string) => norm(u).replace(/[?#].*$/, '').replace(/\/+$/, '')
+const normUrl = (u: string) => norm(u).replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/[?#].*$/, '').replace(/\/+$/, '')
 
 interface DoctorDraft {
   include: boolean
@@ -63,13 +65,15 @@ export default function AddClinic({ agent, rows, onDone, onCancel }: Props) {
   const [doctors, setDoctors] = useState<DoctorDraft[]>([])
   const [existing, setExisting] = useState<ExistingClinic | null>(null)
 
-  // Same brand and the same profile URL (or the same name) = the clinic is already in the app
+  // Same brand and the same profile page = the clinic is already in the app. A clinic that only shares
+  // the name (another branch, another city) is a new clinic.
   function findExisting(data: ScrapedClinic): ExistingClinic | null {
     const mine = rows.filter((r) => r.brand === data.brand &&
-      ((r.clinic_profile_url && normUrl(r.clinic_profile_url) === normUrl(data.profileUrl)) || norm(r.clinic_name) === norm(data.name)))
+      !!r.clinic_profile_url && normUrl(r.clinic_profile_url) === normUrl(data.profileUrl))
     if (!mine.length) return null
     return {
       clinicName: mine[0].clinic_name,
+      location: mine[0].location,
       doctors: mine.map((r) => r.surgeon_name).filter((n) => n && norm(n) !== norm(NO_DOCTOR)),
     }
   }
@@ -135,7 +139,7 @@ export default function AddClinic({ agent, rows, onDone, onCancel }: Props) {
     setSaving(true)
     try {
       const result = await addClinic(payload)
-      onDone(payload.clinicName, result.warnings ?? [])
+      onDone(payload.clinicName, result.warnings ?? [], undefined, payload.location)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -153,7 +157,7 @@ export default function AddClinic({ agent, rows, onDone, onCancel }: Props) {
         mode: 'add-doctors',
         brand,
         clinicName: existing.clinicName,
-        location: location.trim() || scraped.location,
+        location: existing.location,
         profileUrl: scraped.profileUrl,
         clinicImageUrl: null,
         beforeAfterImageUrl: null,
@@ -162,7 +166,7 @@ export default function AddClinic({ agent, rows, onDone, onCancel }: Props) {
         agentEmail: agent.email,
       })
       const n = result.rowsAdded
-      onDone(existing.clinicName, result.warnings ?? [], `${n} doctor${n === 1 ? '' : 's'} added to “${existing.clinicName}”.`)
+      onDone(existing.clinicName, result.warnings ?? [], `${n} doctor${n === 1 ? '' : 's'} added to “${existing.clinicName}” (${existing.location}).`, existing.location)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -286,7 +290,7 @@ export default function AddClinic({ agent, rows, onDone, onCancel }: Props) {
           <div className="bg-white rounded-xl p-6 mb-5" style={card}>
             {existing && (
               <div className="rounded-lg p-3 mb-5 text-sm" style={{ background: '#eef6ff', border: '1px solid #b9d8f5', color: '#24486b' }}>
-                <strong>“{existing.clinicName}” is already in the app</strong>
+                <strong>“{existing.clinicName}” ({existing.location}) is already in the app</strong>
                 {existing.doctors.length ? ` with ${existing.doctors.length} doctor${existing.doctors.length === 1 ? '' : 's'}` : ' with no doctors yet'}.
                 {' '}Tick the doctors to add, check their photos, and save. Clinic details and photos stay as they are.
               </div>
