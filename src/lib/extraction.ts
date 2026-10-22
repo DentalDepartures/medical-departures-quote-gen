@@ -82,14 +82,15 @@ async function callAnthropic(rawText: string, apiKey: string): Promise<QuoteData
   return parseJsonFromText(text)
 }
 
-export async function extractQuoteData(rawText: string): Promise<QuoteData[]> {
+/** splitTreatments: one quote per treatment instead of one per treatment plan / clinic option (the default). */
+export async function extractQuoteData(rawText: string, splitTreatments = false): Promise<QuoteData[]> {
   // 1. Try server-side proxy first (holds the API key securely)
   let networkFailure = false
   try {
     const res = await fetch('/api/extract', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rawText }),
+      body: JSON.stringify({ rawText, splitTreatments }),
     })
     const data = await res.json()
     if (res.ok && data && !data.error) {

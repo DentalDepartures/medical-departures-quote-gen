@@ -8,7 +8,6 @@ const WHITE = rgb(1, 1, 1)
 const DARK  = rgb(0.22, 0.22, 0.22)                 // #383838
 const GRAY  = rgb(88 / 255, 88 / 255, 89 / 255)     // #585859 — agent subtext
 const BLACK = rgb(0, 0, 0)
-const CARD  = rgb(228 / 255, 228 / 255, 228 / 255)  // #e4e4e4 — doctor card
 
 const BRAND = {
   DD: { accent: rgb(82 / 255, 189 / 255, 236 / 255), title: rgb(229 / 255, 27 / 255, 36 / 255) },  // header #52bdec, procedure title red
@@ -342,8 +341,11 @@ export async function generateQuotePDFBytes(
 
   if (doctor) {
     if (legacyTemplate) {
-      // Old templates may carry typed doctor text — repaint the text area of the card.
-      page2.drawRectangle({ x: 30, y: c.doctorCard.top - c.doctorCard.h + 4, width: 195, height: 60, color: CARD })
+      // Old per-clinic templates are no-doctor layouts (or carry typed doctor text / another doctor's headshot)
+      // — swap in the brand's empty doctor card before drawing the doctor.
+      await patchFromBrand(page2, 1, {
+        left: 0, bottom: c.doctorCard.top - c.doctorCard.h - 8, right: c.doctorCard.x + c.doctorCard.w + 10, top: c.doctorCard.top + 8,
+      })
     }
     const name = (quote.surgeonName ?? '').trim()
     const nameSize = autoFitSize(name, boldW, c.doctorName.size, c.doctorName.maxWidth, 8)

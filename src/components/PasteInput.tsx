@@ -16,6 +16,7 @@ interface Props {
     profile: AgentProfile,
     clinic: SelectedClinic | null,
     doctor: SelectedDoctor | null,
+    splitTreatments: boolean,
   ) => void
   isLoading: boolean
   error: string | null
@@ -40,6 +41,7 @@ export default function PasteInput({ rows, clinicsLoading, clinicsError, totalCl
   const [phone, setPhone] = useState(saved?.phone ?? '')
   const [agentSaved, setAgentSaved] = useState(!!saved)
   const [text, setText] = useState('')
+  const [splitTreatments, setSplitTreatments] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [selectedClinic, setSelectedClinic] = useState<SelectedClinic | null>(null)
   const [selectedDoctor, setSelectedDoctor] = useState<SelectedDoctor | null>(null)
@@ -83,6 +85,7 @@ export default function PasteInput({ rows, clinicsLoading, clinicsError, totalCl
     if (!phone.trim()) errs.phone = 'Phone number is required'
     if (!selectedClinic) errs.clinic = 'Please select a clinic'
     if (selectedClinic && !selectedDoctor) errs.doctor = 'Please select a doctor'
+    if (selectedDoctor?.manual && !selectedDoctor.surgeon_name.trim()) errs.doctor = "Type the doctor's name"
     if (!text.trim()) errs.text = 'Please paste the raw quote data'
     setFieldErrors(errs)
     return Object.keys(errs).length === 0
@@ -94,14 +97,15 @@ export default function PasteInput({ rows, clinicsLoading, clinicsError, totalCl
     if (!validate()) return
     const profile: AgentProfile = { name, email, phone }
     saveProfile(profile)
-    onGenerate(text.trim(), profile, selectedClinic, selectedDoctor)
+    onGenerate(text.trim(), profile, selectedClinic, selectedDoctor, splitTreatments)
   }
 
   function handleSelectionChange(clinic: SelectedClinic | null, doctor: SelectedDoctor | null) {
     setSelectedClinic(clinic)
     setSelectedDoctor(doctor)
-    // clear related errors on selection
-    setFieldErrors((prev) => ({ ...prev, clinic: undefined, doctor: undefined }))
+    // clear related errors on selection (a typed doctor clears its error once a name is entered)
+    const doctorOk = !doctor?.manual || !!doctor.surgeon_name.trim()
+    setFieldErrors((prev) => ({ ...prev, clinic: undefined, doctor: doctorOk ? undefined : prev.doctor }))
   }
 
   const inputStyle = (hasError?: string): React.CSSProperties => ({
@@ -339,6 +343,22 @@ export default function PasteInput({ rows, clinicsLoading, clinicsError, totalCl
                 {fieldErrors.text}
               </p>
             )}
+
+            <label className="flex items-start gap-2 mt-3 text-xs cursor-pointer" style={{ color: '#58585a' }}>
+              <input
+                type="checkbox"
+                checked={splitTreatments}
+                onChange={(e) => setSplitTreatments(e.target.checked)}
+                disabled={isLoading}
+                style={{ marginTop: 2 }}
+              />
+              <span>
+                <strong>Separate quote for each treatment</strong>
+                <span style={{ color: '#999' }}>
+                  {' '}— leave unticked to get one quote per treatment plan (one per option if the clinic gives options), with the total price and each treatment listed inside.
+                </span>
+              </span>
+            </label>
 
             {error && (
               <div className="text-sm mt-3" style={{ color: '#e51b24' }}>

@@ -82,6 +82,8 @@ export interface SelectedDoctor {
   accreditations: string
   template_pdf_url: string
   doctor_image_url: string
+  /** Typed by the agent because the doctor isn't in the dropdown */
+  manual?: boolean
 }
 
 export const NO_DOCTOR = 'No Doctor'
@@ -115,4 +117,6 @@ export interface NewClinicPayload {
   doctors: { name: string; credentials: string; imageUrl: string | null }[]
   agentName: string
   agentEmail: string
+  /** "add-doctors": add doctor rows to a clinic that is already in the Clinic App tab */
+  mode?: 'new' | 'add-doctors'
 }

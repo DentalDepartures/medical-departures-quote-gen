@@ -16,6 +16,7 @@ interface Props {
 }
 
 const key = (name: string) => name.trim().toLowerCase()
+const MANUAL = '__manual__'
 
 export default function ClinicDoctorSelector({
   rows, loading, onSelectionChange, onAddClinic, preselectClinic, clinicError, doctorError,
@@ -23,6 +24,8 @@ export default function ClinicDoctorSelector({
   const { config } = useBrand()
   const [selectedClinicKey, setSelectedClinicKey] = useState<string>('')
   const [selectedDoctorIdx, setSelectedDoctorIdx] = useState<string>('')
+  const [manualName, setManualName] = useState('')
+  const [manualCreds, setManualCreds] = useState('')
 
   // Deduplicate clinics by case-insensitive clinic_name
   const clinics: SelectedClinic[] = []
@@ -63,6 +66,8 @@ export default function ClinicDoctorSelector({
   function selectClinic(clinicKey: string) {
     setSelectedClinicKey(clinicKey)
     setSelectedDoctorIdx('')
+    setManualName('')
+    setManualCreds('')
     const clinic = clinics.find((c) => key(c.clinic_name) === clinicKey) ?? null
     // Auto-pick when the clinic has a single row
     const docs = rows.filter((r) => key(r.clinic_name) === clinicKey)
@@ -82,11 +87,28 @@ export default function ClinicDoctorSelector({
     selectClinic(value)
   }
 
+  // A doctor the agent types in: no headshot; uses the clinic's own (No Doctor row) template
+  function manualDoctor(name: string, creds: string): SelectedDoctor {
+    const base = doctors.find((r) => r.surgeon_name.toLowerCase() === NO_DOCTOR.toLowerCase()) ?? doctors[0]
+    return { surgeon_name: name, accreditations: creds, template_pdf_url: base?.template_pdf_url ?? '', doctor_image_url: '', manual: true }
+  }
+
   function handleDoctorChange(idx: string) {
     setSelectedDoctorIdx(idx)
     const clinic = clinics.find((c) => key(c.clinic_name) === selectedClinicKey) ?? null
+    if (idx === MANUAL) {
+      onSelectionChange(clinic, manualDoctor(manualName, manualCreds))
+      return
+    }
     const row = idx !== '' ? doctors[parseInt(idx)] : undefined
     onSelectionChange(clinic, row ? toDoctor(row) : null)
+  }
+
+  function handleManualChange(name: string, creds: string) {
+    setManualName(name)
+    setManualCreds(creds)
+    const clinic = clinics.find((c) => key(c.clinic_name) === selectedClinicKey) ?? null
+    onSelectionChange(clinic, manualDoctor(name, creds))
   }
 
   // Pre-select a clinic once its rows have arrived (used right after "Add clinic")
@@ -154,7 +176,27 @@ export default function ClinicDoctorSelector({
               {d.surgeon_name.toLowerCase() === NO_DOCTOR.toLowerCase() ? 'No doctor (clinic only)' : d.surgeon_name}
             </option>
           ))}
+          {selectedClinicKey && <option value={MANUAL}>✎ Doctor not listed — type name</option>}
         </select>
+        {selectedDoctorIdx === MANUAL && (
+          <div className="mt-2 grid gap-2">
+            <input
+              type="text"
+              value={manualName}
+              onChange={(e) => handleManualChange(e.target.value, manualCreds)}
+              placeholder="Doctor's full name, e.g. Dr. Jane Smith"
+              style={{ ...baseSelect, border: `1.5px solid ${doctorError ? '#e51b24' : '#e0e0e0'}` }}
+            />
+            <input
+              type="text"
+              value={manualCreds}
+              onChange={(e) => handleManualChange(manualName, e.target.value)}
+              placeholder="Credentials (optional), e.g. DDS, Implantologist"
+              style={{ ...baseSelect, border: '1.5px solid #e0e0e0' }}
+            />
+            <p className="text-xs" style={{ color: '#999' }}>Shown on the quote without a photo. Ask Yana to add the doctor so they appear in the list next time.</p>
+          </div>
+        )}
         {doctorError && <p className="text-xs mt-1" style={{ color: '#e51b24' }}>{doctorError}</p>}
       </div>
     </div>

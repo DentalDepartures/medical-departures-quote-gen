@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import type { ClinicRow } from '../types'
+import { fetchClinicRows } from '../lib/api'
 import { useBrand } from '../contexts/BrandContext'
 import { getAdminKey, setAdminKey, clearAdminKey } from '../lib/appMode'
 import AddClinic from './AddClinic'
@@ -7,6 +9,7 @@ import TabBar from './TabBar'
 /**
  * Clinic Admin — the only screen of the admin build.
  * Flow: enter admin password once (kept in this browser) → pick brand → paste clinic URL → pick photos → save.
+ * A clinic that is already in the app switches to "add the doctors it doesn't list yet".
  * The password is verified by the server on every scrape/add call, so the agents' site cannot onboard clinics.
  */
 export default function AdminApp() {
@@ -15,6 +18,9 @@ export default function AdminApp() {
   const [draft, setDraft] = useState('')
   const [adding, setAdding] = useState(false)
   const [done, setDone] = useState<{ clinic: string; warnings: string[] }[]>([])
+  // Current Clinic App rows, so a clinic that is already in the app can get its missing doctors added
+  const [rows, setRows] = useState<ClinicRow[]>([])
+  useEffect(() => { fetchClinicRows().then(setRows).catch(() => setRows([])) }, [adding])
 
   const card = { boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }
 
@@ -54,8 +60,9 @@ export default function AdminApp() {
     return (
       <AddClinic
         agent={{ name: 'Yana (admin)', email: '', phone: '' }}
+        rows={rows}
         onCancel={() => setAdding(false)}
-        onDone={(clinic, warnings) => { setDone((d) => [{ clinic, warnings }, ...d]); setAdding(false) }}
+        onDone={(clinic, warnings, message) => { setDone((d) => [{ clinic: message ?? clinic, warnings }, ...d]); setAdding(false) }}
       />
     )
   }
@@ -67,7 +74,7 @@ export default function AdminApp() {
           <img src={config.logo} alt={config.name} style={{ height: 52, objectFit: 'contain', marginBottom: 12 }} />
           <h1 className="text-2xl font-extrabold" style={{ color: config.primary, margin: 0 }}>Quote Generator — Clinic Admin</h1>
           <p className="text-sm mt-2" style={{ color: '#888' }}>
-            Add a clinic here and it appears in the agents' clinic list immediately.
+            Add a clinic here and it appears in the agents' clinic list immediately. Paste a clinic that is already in the app to add the doctors it's missing.
           </p>
         </div>
 

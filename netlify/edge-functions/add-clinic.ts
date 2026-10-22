@@ -5,6 +5,7 @@
 // Env: GOOGLE_SERVICE_ACCOUNT_JSON, CLINIC_APP_SPREADSHEET_ID, CLINIC_APP_TAB (optional),
 //      DD_QUOTES_FOLDER_ID, MD_QUOTES_FOLDER_ID
 // POST /api/add-clinic  (JSON: NewClinicPayload; image urls may be https URLs or data: URIs for uploads)
+// With mode "add-doctors": adds doctor rows (and headshots in its existing Drive folder) to a clinic already in the tab.
 
 import {
   CORS, SCOPES, driveCreateFolder, driveUpload, env, fetchWithTimeout, getAccessToken, json,
@@ -24,6 +25,7 @@ interface Payload {
   doctors: DoctorIn[]
   agentName?: string
   agentEmail?: string
+  mode?: 'new' | 'add-doctors'
 }
 
 const ALLOWED_IMAGE_HOSTS = [
@@ -91,6 +93,59 @@ async function copyImage(
   }
 }
 
+/** Adds doctors to a clinic that is already in the tab: one row per new doctor, copying the clinic's own fields. */
+async function addDoctors(token: string, spreadsheetId: string, tab: string, p: Payload): Promise<Response> {
+  const existing = rowsToObjects(await sheetsGet(token, spreadsheetId, `${tab}!A:Z`))
+  const clinicRows = existing.filter((o) =>
+    (o.brand ?? '').toUpperCase() === p.brand &&
+    (o.clinic_name ?? '').trim().toLowerCase() === p.clinicName.trim().toLowerCase() &&
+    (o.status ?? '').toLowerCase() === 'active')
+  if (!clinicRows.length) return json({ error: `"${p.clinicName}" is not in the ${p.brand} clinic list yet — add the clinic instead.` }, 404)
+
+  // The clinic's own fields come from its "No Doctor" row (or its first row)
+  const base = clinicRows.find((o) => (o.surgeon_name ?? '').trim().toLowerCase() === 'no doctor') ?? clinicRows[0]
+  const have = new Set(clinicRows.map((o) => (o.surgeon_name ?? '').trim().toLowerCase()))
+  const doctors = (p.doctors ?? []).filter((d) => d.name?.trim() && !have.has(d.name.trim().toLowerCase()))
+  const skipped = (p.doctors ?? []).length - doctors.length
+  if (!doctors.length) return json({ ok: true, rowsAdded: 0, skipped, warnings: [] })
+
+  const warnings: string[] = []
+  const folderId = (base.google_folder ?? '').match(/folders\/([A-Za-z0-9_-]+)/)?.[1] ?? ''
+  if (!folderId) warnings.push('The clinic has no Drive folder link in the sheet, so headshots were not copied.')
+  const clinicName = (base.clinic_name ?? p.clinicName).trim()
+  const doctorImages: string[] = []
+  for (const d of doctors) {
+    doctorImages.push(folderId
+      ? await copyImage(token, folderId, d.imageUrl, `${safeName(clinicName)} - ${safeName(d.name)}`, `Headshot for ${d.name}`, warnings)
+      : '')
+  }
+
+  const headers = await ensureHeaders(token, spreadsheetId, tab, [
+    'brand', 'clinic_name', 'location', 'google_folder', 'clinic_profile_url', 'surgeon_name', 'accreditations', 'status',
+    'clinic_image_url', 'before_after_image_url', 'doctor_image_url', 'added_by', 'added_at',
+  ])
+  const now = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Bangkok' })
+  const rows = doctors.map((d, i) => objectToRow(headers, {
+    brand: p.brand,
+    clinic_name: clinicName,
+    location: base.location ?? '',
+    google_folder: base.google_folder ?? '',
+    clinic_profile_url: base.clinic_profile_url ?? '',
+    status: 'Active',
+    notes: '',
+    template_pdf_url: base.template_pdf_url ?? '',
+    clinic_image_url: base.clinic_image_url ?? '',
+    before_after_image_url: base.before_after_image_url ?? '',
+    added_by: [p.agentName, p.agentEmail].filter(Boolean).join(' '),
+    added_at: now,
+    surgeon_name: d.name.trim(),
+    accreditations: (d.credentials ?? '').trim(),
+    doctor_image_url: doctorImages[i] ?? '',
+  }))
+  await sheetsAppend(token, spreadsheetId, `${tab}!A:Z`, rows)
+  return json({ ok: true, rowsAdded: rows.length, skipped, warnings, clinic: { brand: p.brand, clinic_name: clinicName } })
+}
+
 export default async (request: Request) => {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS })
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
@@ -113,6 +168,8 @@ export default async (request: Request) => {
     const tab = env('CLINIC_APP_TAB', 'Clinic App')
     const parentFolderId = env(p.brand === 'MD' ? 'MD_QUOTES_FOLDER_ID' : 'DD_QUOTES_FOLDER_ID')
     const token = await getAccessToken(`${SCOPES.drive} ${SCOPES.sheets}`)
+
+    if (p.mode === 'add-doctors') return await addDoctors(token, spreadsheetId, tab, p)
 
     // Refuse a duplicate active clinic (same brand + name, case-insensitive)
     const existing = rowsToObjects(await sheetsGet(token, spreadsheetId, `${tab}!A:Z`))

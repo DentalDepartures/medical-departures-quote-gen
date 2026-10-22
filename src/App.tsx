@@ -33,8 +33,9 @@ function AppContent() {
   const [pendingRawText, setPendingRawText] = useState<string | null>(null)
   const [pendingClinic, setPendingClinic] = useState<SelectedClinic | null>(null)
   const [pendingDoctor, setPendingDoctor] = useState<SelectedDoctor | null>(null)
+  const [pendingSplit, setPendingSplit] = useState(false)
   const [preselectClinic, setPreselectClinic] = useState<string | null>(null)
-  const [clinicNotice, setClinicNotice] = useState<{ clinic: string; warnings: string[] } | null>(null)
+  const [clinicNotice, setClinicNotice] = useState<{ clinic: string; warnings: string[]; message?: string } | null>(null)
 
   // Clinic rows — fetched live from the Google Sheet via the clinics edge function
   const [clinicRows, setClinicRows] = useState<ClinicRow[]>([])
@@ -60,12 +61,13 @@ function AppContent() {
     p: AgentProfile,
     clinic: SelectedClinic | null,
     doctor: SelectedDoctor | null,
+    splitTreatments = false,
   ) {
     setProfile(p)
     setIsLoading(true)
     setExtractError(null)
     try {
-      const data = await extractQuoteData(rawText)
+      const data = await extractQuoteData(rawText, splitTreatments)
       const today = todayDDMMYYYY()
       setQuotes(
         data.map((q) => ({
@@ -106,6 +108,7 @@ function AppContent() {
         setPendingRawText(rawText)
         setPendingClinic(clinic)
         setPendingDoctor(doctor)
+        setPendingSplit(splitTreatments)
         setShowApiKeyModal(true)
       } else {
         setExtractError(msg)
@@ -119,7 +122,7 @@ function AppContent() {
   function handleApiKeySaved() {
     setShowApiKeyModal(false)
     if (pendingRawText && profile) {
-      void handleGenerate(pendingRawText, profile, pendingClinic, pendingDoctor)
+      void handleGenerate(pendingRawText, profile, pendingClinic, pendingDoctor, pendingSplit)
       setPendingRawText(null)
       setPendingClinic(null)
       setPendingDoctor(null)
@@ -174,10 +177,11 @@ function AppContent() {
     return (
       <AddClinic
         agent={agent}
+        rows={clinicRows}
         onCancel={() => setStep('paste')}
-        onDone={async (clinicName, warnings) => {
+        onDone={async (clinicName, warnings, message) => {
           setPreselectClinic(clinicName)
-          setClinicNotice({ clinic: clinicName, warnings })
+          setClinicNotice({ clinic: clinicName, warnings, message })
           await loadClinics()
           setStep('paste')
         }}
@@ -195,7 +199,7 @@ function AppContent() {
               style={{ background: clinicNotice.warnings.length ? '#fff7e6' : '#eefbf1', border: `1px solid ${clinicNotice.warnings.length ? '#f0c36d' : '#9fd9ad'}` }}
             >
               <div className="flex-1">
-                <div style={{ fontWeight: 600 }}>“{clinicNotice.clinic}” added and selected.</div>
+                <div style={{ fontWeight: 600 }}>{clinicNotice.message ?? `“${clinicNotice.clinic}” added and selected.`}</div>
                 {clinicNotice.warnings.map((w, i) => <div key={i} style={{ marginTop: 4 }}>{w}</div>)}
               </div>
               <button type="button" onClick={() => setClinicNotice(null)} aria-label="Dismiss" style={{ color: '#888' }}>✕</button>

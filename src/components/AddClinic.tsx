@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import type { AgentProfile, ScrapedClinic, NewClinicPayload } from '../types'
+import type { AgentProfile, ClinicRow, ScrapedClinic, NewClinicPayload } from '../types'
+import { NO_DOCTOR } from '../types'
 import { useBrand } from '../contexts/BrandContext'
 import { clearAdminKey } from '../lib/appMode'
 import { scrapeClinic, addClinic } from '../lib/api'
@@ -7,9 +8,20 @@ import { proxiedUrl } from '../lib/imagePrep'
 
 interface Props {
   agent: AgentProfile
-  onDone: (clinicName: string, warnings: string[]) => void
+  /** All Clinic App rows — used to spot a clinic that is already in the app */
+  rows: ClinicRow[]
+  onDone: (clinicName: string, warnings: string[], message?: string) => void
   onCancel: () => void
 }
+
+/** A clinic already in the Clinic App tab: its sheet name and the doctors it lists */
+interface ExistingClinic {
+  clinicName: string
+  doctors: string[]
+}
+
+const norm = (s: string) => s.trim().toLowerCase()
+const normUrl = (u: string) => norm(u).replace(/[?#].*$/, '').replace(/\/+$/, '')
 
 interface DoctorDraft {
   include: boolean
@@ -36,7 +48,7 @@ function thumbSrc(url: string | null): string | undefined {
   return url.startsWith('data:') ? url : proxiedUrl(url)
 }
 
-export default function AddClinic({ agent, onDone, onCancel }: Props) {
+export default function AddClinic({ agent, rows, onDone, onCancel }: Props) {
   const { config, brand } = useBrand()
   const [url, setUrl] = useState('')
   const [loading, setLoading] = useState(false)
@@ -49,6 +61,18 @@ export default function AddClinic({ agent, onDone, onCancel }: Props) {
   const [clinicImage, setClinicImage] = useState<string | null>(null)
   const [beforeAfter, setBeforeAfter] = useState<string | null>(null)
   const [doctors, setDoctors] = useState<DoctorDraft[]>([])
+  const [existing, setExisting] = useState<ExistingClinic | null>(null)
+
+  // Same brand and the same profile URL (or the same name) = the clinic is already in the app
+  function findExisting(data: ScrapedClinic): ExistingClinic | null {
+    const mine = rows.filter((r) => r.brand === data.brand &&
+      ((r.clinic_profile_url && normUrl(r.clinic_profile_url) === normUrl(data.profileUrl)) || norm(r.clinic_name) === norm(data.name)))
+    if (!mine.length) return null
+    return {
+      clinicName: mine[0].clinic_name,
+      doctors: mine.map((r) => r.surgeon_name).filter((n) => n && norm(n) !== norm(NO_DOCTOR)),
+    }
+  }
 
   async function handleFetch(e: React.FormEvent) {
     e.preventDefault()
@@ -67,7 +91,13 @@ export default function AddClinic({ agent, onDone, onCancel }: Props) {
       setLocation(data.location)
       setClinicImage(data.galleryImages[0] ?? null)
       setBeforeAfter(null) // judgement call — never auto-pick the before/after
-      setDoctors(data.doctors.map((d) => ({ include: true, name: d.name, credentials: d.credentials, imageUrl: d.imageUrl, candidate: d.imageUrl })))
+      const ex = findExisting(data)
+      setExisting(ex)
+      // For a clinic already in the app, offer only the doctors it doesn't list yet
+      const have = new Set((ex?.doctors ?? []).map(norm))
+      setDoctors(data.doctors
+        .filter((d) => !have.has(norm(d.name)))
+        .map((d) => ({ include: true, name: d.name, credentials: d.credentials, imageUrl: d.imageUrl, candidate: d.imageUrl })))
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -87,6 +117,7 @@ export default function AddClinic({ agent, onDone, onCancel }: Props) {
   async function handleSave() {
     setError(null)
     if (!scraped) return
+    if (existing) { await handleAddDoctors(); return }
     if (!name.trim()) { setError('Clinic name is required'); return }
     if (!location.trim()) { setError('Location is required (City, Country)'); return }
     const chosenDoctors = doctors.filter((d) => d.include && d.name.trim())
@@ -105,6 +136,33 @@ export default function AddClinic({ agent, onDone, onCancel }: Props) {
     try {
       const result = await addClinic(payload)
       onDone(payload.clinicName, result.warnings ?? [])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleAddDoctors() {
+    if (!scraped || !existing) return
+    const chosenDoctors = doctors.filter((d) => d.include && d.name.trim())
+    if (!chosenDoctors.length) { setError('Tick at least one doctor to add'); return }
+    setSaving(true)
+    try {
+      const result = await addClinic({
+        mode: 'add-doctors',
+        brand,
+        clinicName: existing.clinicName,
+        location: location.trim() || scraped.location,
+        profileUrl: scraped.profileUrl,
+        clinicImageUrl: null,
+        beforeAfterImageUrl: null,
+        doctors: chosenDoctors.map((d) => ({ name: d.name.trim(), credentials: d.credentials.trim(), imageUrl: d.imageUrl })),
+        agentName: agent.name,
+        agentEmail: agent.email,
+      })
+      const n = result.rowsAdded
+      onDone(existing.clinicName, result.warnings ?? [], `${n} doctor${n === 1 ? '' : 's'} added to “${existing.clinicName}”.`)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -226,6 +284,15 @@ export default function AddClinic({ agent, onDone, onCancel }: Props) {
 
         {scraped && (
           <div className="bg-white rounded-xl p-6 mb-5" style={card}>
+            {existing && (
+              <div className="rounded-lg p-3 mb-5 text-sm" style={{ background: '#eef6ff', border: '1px solid #b9d8f5', color: '#24486b' }}>
+                <strong>“{existing.clinicName}” is already in the app</strong>
+                {existing.doctors.length ? ` with ${existing.doctors.length} doctor${existing.doctors.length === 1 ? '' : 's'}` : ' with no doctors yet'}.
+                {' '}Tick the doctors to add, check their photos, and save. Clinic details and photos stay as they are.
+              </div>
+            )}
+
+            {!existing && <>
             {/* Clinic facts */}
             <div className="text-xs font-bold tracking-widest uppercase mb-3" style={sectionTitle}>Clinic</div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
@@ -255,13 +322,20 @@ export default function AddClinic({ agent, onDone, onCancel }: Props) {
               onChange={setBeforeAfter}
               optional
             />
+            </>}
 
             {/* Doctors */}
             <div className="text-xs font-bold tracking-widest uppercase mb-1" style={sectionTitle}>Doctors</div>
             <p className="text-xs mb-3" style={{ color: '#888' }}>
-              Each ticked doctor becomes a choice in the Doctor dropdown. A "No doctor" option is always added.
+              {existing
+                ? 'Each ticked doctor becomes a new choice in the Doctor dropdown. Doctors the app already lists are not shown.'
+                : 'Each ticked doctor becomes a choice in the Doctor dropdown. A "No doctor" option is always added.'}
             </p>
-            {doctors.length === 0 && <p className="text-sm mb-3" style={{ color: '#888' }}>No doctors found on the page. You can add one below.</p>}
+            {doctors.length === 0 && (
+              <p className="text-sm mb-3" style={{ color: '#888' }}>
+                {existing ? 'No new doctors on the page — the app already lists them all. You can add one below.' : 'No doctors found on the page. You can add one below.'}
+              </p>
+            )}
             <div className="space-y-3 mb-3">
               {doctors.map((d, i) => (
                 <div key={i} className="flex gap-3 items-start rounded-lg p-3" style={{ border: '1px solid #eee', opacity: d.include ? 1 : 0.55 }}>
@@ -334,7 +408,9 @@ export default function AddClinic({ agent, onDone, onCancel }: Props) {
               <button type="button" onClick={handleSave} disabled={saving}
                 className="rounded-lg font-bold"
                 style={{ background: saving ? '#aaa' : config.primary, color: config.primaryText, padding: '12px 22px', border: 'none', fontSize: 13, cursor: saving ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
-                {saving ? 'Saving clinic…' : 'Save clinic & use it →'}
+                {existing
+                  ? (saving ? 'Adding doctors…' : `Add ${doctors.filter((d) => d.include && d.name.trim()).length} doctor(s) →`)
+                  : (saving ? 'Saving clinic…' : 'Save clinic & use it →')}
               </button>
             </div>
           </div>

@@ -34,7 +34,7 @@ export async function scrapeClinic(url: string): Promise<ScrapedClinic> {
   return parseJson<ScrapedClinic>(await fetch(`/api/scrape-clinic?url=${encodeURIComponent(url)}`, { headers: adminHeaders() }), 'Clinic page reader')
 }
 
-export async function addClinic(payload: NewClinicPayload): Promise<{ ok: boolean; folder: string; rowsAdded: number; warnings?: string[] }> {
+export async function addClinic(payload: NewClinicPayload): Promise<{ ok: boolean; folder?: string; rowsAdded: number; skipped?: number; warnings?: string[] }> {
   return parseJson(
     await fetch('/api/add-clinic', { method: 'POST', headers: { 'Content-Type': 'application/json', ...adminHeaders() }, body: JSON.stringify(payload) }),
     'Add clinic',

@@ -1,7 +1,7 @@
 // Edge Function — Anthropic quote extraction, converted from Lambda to Deno.
 // Environment variables: ANTHROPIC_API_KEY, ANTHROPIC_MODEL (optional)
 
-const SYSTEM_PROMPT = `You are a Medical and Dental Quote Processing Agent.
+const PROMPT_HEAD = `You are a Medical and Dental Quote Processing Agent.
 
 Your job is to read raw clinic/hospital quotation text, extract the correct procedure details, and return ONLY a valid JSON array. No other text.
 
@@ -38,8 +38,10 @@ Return a JSON ARRAY where each element matches this schema (null for missing fie
 - Shared fields (clinicName, clinicLocation, surgeonName, etc.) must be duplicated across all quote objects when multiple quotes are created
 - price: always a plain number (strip all currency symbols and commas) or null
 - pricePrefix: "Starting from" or null
+`
 
-=== DECISION LOGIC — HOW MANY QUOTES TO CREATE ===
+// Used only when the agent ticks "Separate quote for each treatment"
+const SPLIT_RULES = `=== DECISION LOGIC — HOW MANY QUOTES TO CREATE ===
 
 Before producing output, silently decide which rule applies:
 1. Are these procedures variations of the same treatment root? → RULE 1
@@ -87,7 +89,34 @@ Action:
 - price: total treatment price. If no total is stated, calculate from all phases.
 - Put phase/visit breakdown and timing into inclusions or importantNotes
 
-=== PRICE RULES ===
+`
+
+// Default: keep a clinic's treatment plan together — one quote per plan, or per option when the clinic offers options
+const COMBINE_RULES = `=== DECISION LOGIC — HOW MANY QUOTES TO CREATE ===
+
+The agent wants each treatment plan kept together in ONE quote. Never split one plan into a separate quote per treatment.
+
+Before producing output, silently decide which rule applies:
+1. Does the clinic offer clearly labelled alternatives the patient chooses between (e.g. "Option 1 / Option 2", "Plan A / Plan B", "Package 1 / Package 2", or two separate treatment plans/documents for the same patient)? → RULE A
+2. Otherwise → RULE B (everything is one plan = one quote)
+
+--- RULE A: Clinic options = ONE quote PER OPTION ---
+- Create one quote per option, in the order the clinic gives them. Never split an option into its treatments.
+- treatmentName: the option label plus a short summary, e.g. "Option 1: Overlays + Crowns"
+- Build each option's quote with RULE B.
+
+--- RULE B: One treatment plan = ONE quote ---
+Use for everything quoted for the patient as one plan, even when it mixes different treatment categories (e.g. Overlays + Crowns + Cleaning, or Rhinoplasty + Earlobe Reduction).
+- treatmentName: the plan or package name if the clinic gives one, otherwise the treatments joined with " + " (short, max ~60 characters, e.g. "Overlays + Crowns")
+- price: the plan TOTAL — the total stated by the clinic, or if none is stated, the sum of the final price of every item in the plan. pricePrefix: null
+- Exception — alternatives inside a plan: if items are variations of the same treatment where the patient picks only one (e.g. liposuction areas, implant brands, crown materials), do not add them up: use the lowest price with pricePrefix "Starting from" and list each variation with its price in importantNotes as "  - [Variation]: [PRICE] [CURRENCY]"
+- inclusions: first one line per treatment with its quantity and price, e.g. "Overlay x8 (teeth 14, 15, 16, 17, 24, 25, 36, 46): 60,000 MXN", then the package inclusions (hotel, transfers, consultation, etc.)
+- Visits, phases and timing (e.g. "Day 1: preparation and scanning") go in importantNotes
+- exclusions and importantNotes are shared by the whole plan — never repeat the same line
+
+`
+
+const PROMPT_TAIL = `=== PRICE RULES ===
 Priority order (use highest available):
 1. Promotion price
 2. Discounted price
@@ -105,6 +134,9 @@ Keep text concise. The PDF has strict limits:
 - importantNotes: max 23 lines
 
 Do not pad or repeat information to fill space. Do not invent missing details.`
+
+const systemPrompt = (splitTreatments: boolean) =>
+  `${PROMPT_HEAD}\n${splitTreatments ? SPLIT_RULES : COMBINE_RULES}${PROMPT_TAIL}`
 
 const CORS = {
   'Content-Type': 'application/json',
@@ -128,10 +160,12 @@ export default async (request: Request) => {
   }
 
   let rawText: string
+  let splitTreatments = false
   try {
-    const body = await request.json() as { rawText?: unknown }
+    const body = await request.json() as { rawText?: unknown; splitTreatments?: unknown }
     if (typeof body.rawText !== 'string' || !body.rawText) throw new Error('rawText missing')
     rawText = body.rawText
+    splitTreatments = body.splitTreatments === true
   } catch {
     return new Response(JSON.stringify({ error: 'Invalid request body — rawText required' }), {
       status: 400, headers: CORS,
@@ -151,7 +185,7 @@ export default async (request: Request) => {
       body: JSON.stringify({
         model,
         max_tokens: 4096,
-        system: SYSTEM_PROMPT,
+        system: systemPrompt(splitTreatments),
         messages: [{ role: 'user', content: `Extract the quote data from this text:\n\n${rawText}` }],
       }),
     })
