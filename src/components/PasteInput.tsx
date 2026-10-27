@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import type { AgentProfile, ClinicRow, SelectedClinic, SelectedDoctor } from '../types'
-import { getProfile, saveProfile } from '../lib/storage'
+import { getProfile, saveProfile, getOpsAgent, saveOpsAgent, getOpsNames, addOpsName } from '../lib/storage'
 import { fetchAgents } from '../lib/api'
 import { useBrand } from '../contexts/BrandContext'
 import TabBar from './TabBar'
@@ -25,6 +25,7 @@ interface Props {
 }
 
 interface FieldErrors {
+  ops?: string
   name?: string
   email?: string
   phone?: string
@@ -47,10 +48,21 @@ export default function PasteInput({ rows, clinicsLoading, clinicsError, totalCl
   const [selectedDoctor, setSelectedDoctor] = useState<SelectedDoctor | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [agents, setAgents] = useState<AgentProfile[]>([])
+  // The ops agent is the person making the quote for the sales agent: chosen once, then remembered
+  const [opsNames, setOpsNames] = useState<string[]>(getOpsNames())
+  const [opsAgent, setOpsAgent] = useState(getOpsAgent())
+  const [opsEditing, setOpsEditing] = useState(!getOpsAgent())
+  const [opsTyping, setOpsTyping] = useState(false)
 
   useEffect(() => {
     void fetchAgents().then(setAgents)
   }, [])
+
+  function chooseOps(value: string) {
+    setOpsAgent(value)
+    saveOpsAgent(value)
+    if (value.trim()) setFieldErrors((p) => ({ ...p, ops: undefined }))
+  }
 
   // The dropdown shows whichever listed agent matches the email currently in the form
   const selectedAgent = agents.findIndex((a) => a.email.trim().toLowerCase() === email.trim().toLowerCase())
@@ -80,6 +92,7 @@ export default function PasteInput({ rows, clinicsLoading, clinicsError, totalCl
 
   function validate(): boolean {
     const errs: FieldErrors = {}
+    if (!opsAgent.trim()) errs.ops = 'Choose your name (Ops Agent)'
     if (!name.trim()) errs.name = 'Full name is required'
     if (!email.trim()) errs.email = 'Email is required'
     if (!phone.trim()) errs.phone = 'Phone number is required'
@@ -94,9 +107,13 @@ export default function PasteInput({ rows, clinicsLoading, clinicsError, totalCl
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (isLoading) return
-    if (!validate()) return
+    if (!validate()) {
+      if (!opsAgent.trim()) setOpsEditing(true)
+      return
+    }
     const profile: AgentProfile = { name, email, phone }
     saveProfile(profile)
+    setOpsNames(addOpsName(opsAgent))
     onGenerate(text.trim(), profile, selectedClinic, selectedDoctor, splitTreatments)
   }
 
@@ -136,7 +153,88 @@ export default function PasteInput({ rows, clinicsLoading, clinicsError, totalCl
           </p>
         </div>
 
-        {/* Contact details card */}
+        {/* Ops agent — who is making this quote (chosen once on this computer) */}
+        <div
+          className="bg-white rounded-xl px-7 py-5 mb-5"
+          style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }}
+        >
+          {!opsEditing && opsAgent ? (
+            <div className="flex items-center gap-3 text-sm">
+              <span className="text-xs font-bold tracking-widest uppercase" style={{ color: config.primary }}>
+                Ops Agent
+              </span>
+              <span style={{ fontWeight: 600, color: '#333' }}>{opsAgent}</span>
+              <button
+                type="button"
+                onClick={() => { setOpsEditing(true); setOpsTyping(!opsNames.includes(opsAgent)) }}
+                className="text-xs underline"
+                style={{ color: '#888', background: 'none', border: 'none', cursor: 'pointer' }}
+              >
+                Change
+              </button>
+            </div>
+          ) : (
+            <div>
+              <label className="block text-xs font-bold tracking-widest uppercase mb-2" style={{ color: config.primary }}>
+                Ops Agent — who is making the quotes on this computer?
+              </label>
+              <div className="flex gap-3 items-start">
+                <div style={{ flex: 1 }}>
+                  {opsNames.length > 0 && !opsTyping ? (
+                    <select
+                      value={opsNames.includes(opsAgent) ? opsAgent : ''}
+                      onChange={(e) => {
+                        if (e.target.value === '__new__') { setOpsTyping(true); chooseOps(''); return }
+                        chooseOps(e.target.value)
+                      }}
+                      style={{ ...inputStyle(fieldErrors.ops), background: 'white', cursor: 'pointer' }}
+                    >
+                      <option value="" disabled>— Select your name —</option>
+                      {opsNames.map((n) => <option key={n} value={n}>{n}</option>)}
+                      <option value="__new__">✎ Not listed — add new</option>
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      value={opsAgent}
+                      onChange={(e) => chooseOps(e.target.value)}
+                      placeholder="Your full name"
+                      autoFocus={opsTyping}
+                      style={inputStyle(fieldErrors.ops)}
+                    />
+                  )}
+                  {opsTyping && opsNames.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => { setOpsTyping(false); chooseOps(getOpsAgent() || '') }}
+                      className="text-xs underline mt-1"
+                      style={{ color: '#888', background: 'none', border: 'none', cursor: 'pointer' }}
+                    >
+                      ← Back to the list
+                    </button>
+                  )}
+                  {fieldErrors.ops && (
+                    <p className="text-xs mt-1" style={{ color: '#e51b24' }}>{fieldErrors.ops}</p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  disabled={!opsAgent.trim()}
+                  onClick={() => { chooseOps(opsAgent); setOpsNames(addOpsName(opsAgent)); setOpsTyping(false); setOpsEditing(false) }}
+                  className="text-sm font-semibold rounded-lg px-4"
+                  style={{ height: 37, background: opsAgent.trim() ? config.primary : '#ccc', color: 'white', border: 'none', cursor: opsAgent.trim() ? 'pointer' : 'default' }}
+                >
+                  Save
+                </button>
+              </div>
+              <p className="text-xs mt-1" style={{ color: '#999' }}>
+                Asked once, then remembered on this computer. It goes into the Quotes Tracker, not on the quote.
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Sales agent card — these details are printed on the quote */}
         <div
           className="bg-white rounded-xl p-7 mb-5"
           style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }}
@@ -146,7 +244,7 @@ export default function PasteInput({ rows, clinicsLoading, clinicsError, totalCl
               className="text-xs font-bold tracking-widest uppercase"
               style={{ color: config.primary }}
             >
-              Your Details (Ops Agent)
+              Sales Agent (shown on the quote)
             </span>
             {agentSaved && (
               <span
@@ -161,7 +259,7 @@ export default function PasteInput({ rows, clinicsLoading, clinicsError, totalCl
           {agents.length > 0 && (
             <div className="mb-3">
               <label className="block text-xs font-semibold mb-1" style={{ color: '#58585a' }}>
-                Choose your name
+                Choose the sales agent
               </label>
               <select
                 value={selectedAgent >= 0 ? String(selectedAgent) : ''}
@@ -169,7 +267,7 @@ export default function PasteInput({ rows, clinicsLoading, clinicsError, totalCl
                 style={{ ...inputStyle(), background: 'white', cursor: 'pointer' }}
               >
                 <option value="" disabled>
-                  {name || email ? 'Not in the list — details typed below' : '— Select your name —'}
+                  {name || email ? 'Not in the list — details typed below' : '— Select the sales agent —'}
                 </option>
                 {agents.map((a, i) => (
                   <option key={a.email || a.name} value={i}>
@@ -178,7 +276,7 @@ export default function PasteInput({ rows, clinicsLoading, clinicsError, totalCl
                 ))}
               </select>
               <p className="text-xs mt-1" style={{ color: '#999' }}>
-                Fills in your name, email and phone. Not listed? Just type your details below.
+                Fills in the sales agent's name, email and phone. Not listed? Just type the details below.
               </p>
             </div>
           )}
@@ -197,7 +295,7 @@ export default function PasteInput({ rows, clinicsLoading, clinicsError, totalCl
                   setAgentSaved(false)
                   if (e.target.value.trim()) setFieldErrors((p) => ({ ...p, name: undefined }))
                 }}
-                placeholder="Your name"
+                placeholder="Sales agent's name"
                 style={inputStyle(fieldErrors.name)}
               />
               {fieldErrors.name && (
@@ -220,7 +318,7 @@ export default function PasteInput({ rows, clinicsLoading, clinicsError, totalCl
                   setAgentSaved(false)
                   if (e.target.value.trim()) setFieldErrors((p) => ({ ...p, email: undefined }))
                 }}
-                placeholder="your@email.com"
+                placeholder="agent@dentaldepartures.com"
                 style={inputStyle(fieldErrors.email)}
               />
               {fieldErrors.email && (

@@ -1,7 +1,8 @@
-// Edge Function — returns the ops agents for the "Choose your name" dropdown.
+// Edge Function — returns the sales agents for the "Choose the sales agent" dropdown.
 // Reads the Agents tab (columns matched BY HEADER NAME: name, email, phone), so Yana can add or
-// change agents in the sheet without a redeploy. Falls back to the built-in list below if the tab
-// is missing, empty or unreadable — the dropdown should never break quote generation.
+// change agents in the sheet without a redeploy. The built-in agents below are always in the list:
+// the sheet's version of an agent wins (matched by email), and any built-in agent missing from the
+// sheet is added after the sheet's agents — the dropdown should never lose anyone or break quotes.
 // Env: GOOGLE_SERVICE_ACCOUNT_JSON, CLINIC_APP_SPREADSHEET_ID, AGENTS_TAB (optional, default "Agents")
 
 import { CORS, SCOPES, env, getAccessToken, json, rowsToObjects, sheetsGet } from '../edge-lib/google.ts'
@@ -27,8 +28,10 @@ export default async (request: Request) => {
     const agents = rowsToObjects(await sheetsGet(token, spreadsheetId, `${tab}!A:Z`))
       .map((o) => ({ name: o.name ?? '', email: o.email ?? '', phone: o.phone ?? '' }))
       .filter((a) => a.name)
-    if (agents.length) return json({ agents, source: 'sheet' })
-    return json({ agents: DEFAULT_AGENTS, source: 'built-in' })
+    if (!agents.length) return json({ agents: DEFAULT_AGENTS, source: 'built-in' })
+    const have = new Set(agents.map((a) => a.email.trim().toLowerCase()).filter(Boolean))
+    const missing = DEFAULT_AGENTS.filter((a) => !have.has(a.email.toLowerCase()))
+    return json({ agents: [...agents, ...missing], source: missing.length ? 'sheet + built-in' : 'sheet' })
   } catch (err) {
     return json({ agents: DEFAULT_AGENTS, source: 'built-in', warning: String(err) })
   }

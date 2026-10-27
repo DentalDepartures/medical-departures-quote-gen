@@ -243,13 +243,13 @@ export async function sheetsGet(token: string, spreadsheetId: string, range: str
   return data.values ?? []
 }
 
-export async function sheetsAppend(token: string, spreadsheetId: string, range: string, rows: string[][]): Promise<void> {
+export async function sheetsAppend(token: string, spreadsheetId: string, range: string, rows: string[][], ms = 15000): Promise<void> {
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`
   const res = await fetchWithTimeout(url, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ values: rows }),
-  })
+  }, ms)
   if (!res.ok) throw new Error(`Sheets append failed ${res.status}: ${await res.text()}`)
 }
 

@@ -3,8 +3,8 @@ import type { AgentProfile, QuoteData, ClinicRow, SelectedClinic, SelectedDoctor
 import { extractQuoteData } from './lib/extraction'
 import { generateQuotePDF } from './lib/pdfService'
 import { BrandProvider, useBrand } from './contexts/BrandContext'
-import { fetchClinicRows, uploadQuote, reportError } from './lib/api'
-import { getProfile } from './lib/storage'
+import { fetchClinicRows, uploadQuote, logQuote, reportError } from './lib/api'
+import { getProfile, getOpsAgent } from './lib/storage'
 
 import PasteInput from './components/PasteInput'
 import ReviewForm from './components/ReviewForm'
@@ -139,10 +139,23 @@ function AppContent() {
         try {
           const { pdfBytes, filename, quoteId } = await generateQuotePDF(quote, profile, brand)
           finished.push({ ...quote, quoteId })
+          const label = quote.treatmentName || 'Quote'
+          let webViewLink = ''
+          let uploadError = ''
           try {
-            await uploadQuote({ pdfBytes, filename, quoteId, quote, agent: profile, brand })
+            ;({ webViewLink } = await uploadQuote({ pdfBytes, filename, quote, brand }))
           } catch (uploadErr) {
-            failures.push(`${quote.treatmentName || 'Quote'} — the PDF downloaded but could not be saved to Drive: ${String(uploadErr)}`)
+            uploadError = String(uploadErr)
+            failures.push(`${label} — the PDF downloaded but could not be saved to Drive: ${uploadError}`)
+            void reportError({ errorType: 'network', message: uploadError, step: `Drive upload (${quoteId})`, patientName: quote.patientName, agentName: profile.name, agentEmail: profile.email })
+          }
+          // The tracker row is written even when the Drive upload failed — it then carries the error
+          try {
+            await logQuote({ quoteId, quote, agent: profile, opsAgent: getOpsAgent(), brand, webViewLink, uploadError })
+          } catch (logErr) {
+            const msg = String(logErr)
+            failures.push(`${label} — the PDF downloaded but was not recorded in the Quotes Tracker (Yana has been emailed): ${msg}`)
+            void reportError({ errorType: 'tracker', message: msg, step: `Quotes Tracker row for ${quoteId}${webViewLink ? ` — PDF: ${webViewLink}` : ''}`, patientName: quote.patientName, agentName: profile.name, agentEmail: profile.email })
           }
         } catch (pdfErr) {
           const msg = String(pdfErr)

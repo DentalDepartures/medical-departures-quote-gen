@@ -9,6 +9,7 @@ const ERROR_LABELS: Record<string, string> = {
   pdf:        'PDF Generation Failed',
   api_key:    'Anthropic API Key Issue',
   network:    'Network / Connectivity Error',
+  tracker:    'Quote Not Logged in the Quotes Tracker',
   unknown:    'Unknown Error',
 }
 

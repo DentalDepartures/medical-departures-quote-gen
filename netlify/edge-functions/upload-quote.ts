@@ -1,8 +1,9 @@
-// Edge Function — saves a generated quote PDF to the clinic's Drive folder and logs it to the Quotes Tracker tab.
-// Env: GOOGLE_SERVICE_ACCOUNT_JSON, TRACKER_SPREADSHEET_ID (defaults to the Clinic App spreadsheet),
-//      TRACKER_TAB (optional, default "Quotes Tracker")
+// Edge Function — saves a generated quote PDF to the clinic's Drive folder.
+// The Quotes Tracker row is written separately by /api/log-quote, so a slow Google Sheets call can
+// be retried on its own without uploading the PDF again.
+// Env: GOOGLE_SERVICE_ACCOUNT_JSON, DD_QUOTES_FOLDER_ID / MD_QUOTES_FOLDER_ID (fallback folders)
 
-import { CORS, SCOPES, driveUpload, ensureHeaders, env, extractDriveFolderId, getAccessToken, json, sheetsAppend } from '../edge-lib/google.ts'
+import { CORS, SCOPES, driveUpload, env, extractDriveFolderId, getAccessToken, json } from '../edge-lib/google.ts'
 
 export default async (request: Request) => {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS })
@@ -12,78 +13,23 @@ export default async (request: Request) => {
     const body = await request.json() as {
       pdfBase64?: string
       filename?: string
-      quoteId?: string
-      patientName?: string | null
-      treatmentName?: string | null
-      clinicName?: string | null
       brand?: string
-      agentName?: string
-      agentEmail?: string
       googleFolder?: string | null
-      quoteDate?: string | null
     }
-    const { pdfBase64, filename, quoteId, patientName, clinicName, brand, agentName, agentEmail, googleFolder, quoteDate } = body
+    const { pdfBase64, filename, brand, googleFolder } = body
     if (!pdfBase64 || !filename) return json({ error: 'pdfBase64 and filename are required' }, 400)
 
-    const pdfBytes = Uint8Array.from(atob(pdfBase64), (c) => c.charCodeAt(0))
-    const token = await getAccessToken(`${SCOPES.drive} ${SCOPES.sheets}`)
-
     // Upload to Drive (clinic folder, else the brand's quotes folder, else skip)
-    let webViewLink = ''
-    let uploadError = ''
     const folderId =
       (googleFolder && extractDriveFolderId(googleFolder)) ||
       env(brand === 'MD' ? 'MD_QUOTES_FOLDER_ID' : 'DD_QUOTES_FOLDER_ID', '')
-    if (folderId) {
-      try {
-        const up = await driveUpload({ token, folderId, filename, bytes: pdfBytes, mimeType: 'application/pdf' })
-        webViewLink = up.webViewLink
-      } catch (e) {
-        uploadError = String(e)
-      }
-    }
+    if (!folderId) return json({ ok: true, webViewLink: '' })
 
-    // Log to the tracker (always, even when the Drive upload failed — the row then carries the error)
-    const trackerId = env('TRACKER_SPREADSHEET_ID', env('CLINIC_APP_SPREADSHEET_ID', ''))
-    const trackerTab = env('TRACKER_TAB', 'Quotes Tracker')
-    if (trackerId) {
-      const now = new Date()
-      const createdTime = now.toLocaleString('en-GB', { timeZone: 'Asia/Bangkok' })
-      // Bangkok is UTC+7 all year (no DST), so shifting the UTC clock gives local time
-      const createdIso = new Date(now.getTime() + 7 * 60 * 60 * 1000).toISOString().slice(0, 19).replace('T', ' ')
-      // The tracker's locale is en_US, so USER_ENTERED turns "05/10/2026" into 10 May and leaves
-      // "25/10/2026" as text. A leading apostrophe keeps both DD/MM cells as the text the team reads.
-      const asText = (v: string) => (v ? `'${v}` : '')
-      // Columns A–H are the tracker's existing layout; the extra columns are created at the end if missing
-      const headers = await ensureHeaders(token, trackerId, trackerTab, ['quote_id', 'agent_email', 'created_iso'])
-      const row = [
-        asText(quoteDate ?? ''),
-        asText(createdTime),
-        brand ?? '',
-        patientName ?? '',
-        clinicName ?? '',
-        webViewLink,
-        agentName ?? '',
-        uploadError ? `Drive upload failed: ${uploadError}` : '',
-      ]
-      const extra: Record<string, string> = {
-        quote_id: quoteId ?? '',
-        // One spelling per agent to count by (agent names are typed freely)
-        agent_email: (agentEmail ?? '').trim().toLowerCase(),
-        // "YYYY-MM-DD HH:MM:SS" is read as a real date-time in any locale, so it sorts and filters
-        created_iso: createdIso,
-      }
-      for (const [name, value] of Object.entries(extra)) {
-        const col = headers.indexOf(name)
-        while (row.length <= col) row.push('')
-        row[col] = value
-      }
-      await sheetsAppend(token, trackerId, `${trackerTab}!A:Z`, [row])
-    }
-
-    if (uploadError) return json({ ok: false, error: uploadError, webViewLink: '' }, 502)
-    return json({ ok: true, webViewLink })
+    const pdfBytes = Uint8Array.from(atob(pdfBase64), (c) => c.charCodeAt(0))
+    const token = await getAccessToken(SCOPES.drive)
+    const up = await driveUpload({ token, folderId, filename, bytes: pdfBytes, mimeType: 'application/pdf' })
+    return json({ ok: true, webViewLink: up.webViewLink })
   } catch (err) {
-    return json({ error: String(err) }, 500)
+    return json({ error: String(err) }, 502)
   }
 }

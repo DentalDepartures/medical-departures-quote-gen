@@ -48,6 +48,10 @@
   function = "upload-quote"
   path = "/api/upload-quote"
 
+[[edge_functions]]
+  function = "log-quote"
+  path = "/api/log-quote"
+
 # SPA fallback — all unmatched routes serve index.html
 [[redirects]]
   from = "/*"
