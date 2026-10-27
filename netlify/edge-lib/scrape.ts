@@ -77,7 +77,7 @@ export function parseClinic(html: string, profileUrl: string, brand: Brand) {
   }
   if (!name) {
     const h1 = html.match(/<h1[^>]*>(.*?)<\/h1>/s)
-    if (h1) name = stripTags(h1[1]).replace(/\s*Dental Departures Verified.*$/i, '').trim()
+    if (h1) name = stripTags(h1[1]).replace(/\s*(Dental|Medical) Departures Verified.*$/i, '').trim()
   }
 
   // Location: <div class="location"><span>City , Country</span>
@@ -149,3 +149,60 @@ export function parseClinic(html: string, profileUrl: string, brand: Brand) {
   }
 }
 
+/** The slug of a medicaldepartures.com /clinic/<slug> profile URL, or null. */
+export function mdClinicSlug(url: string): string | null {
+  try {
+    const m = new URL(url).pathname.match(/^\/clinic\/([^/?#]+)/)
+    return m ? decodeURIComponent(m[1]) : null
+  } catch {
+    return null
+  }
+}
+
+interface MdApiClinic {
+  name?: string
+  location?: { city?: { name?: string } | null; country?: { name?: string } | null } | null
+  photos?: {
+    clinic_photos?: { image?: string }[]
+    before_after_photos?: { combined_image?: string; before_image?: string; after_image?: string }[]
+  } | null
+  doctors?: { name?: string; photo?: string | null; years_of_practicing?: number | null; associations?: string[] | null }[]
+}
+
+/**
+ * Same result as parseClinic, built from the JSON the MD site's own pages load from
+ * api.medicaldepartures.com/core/v1/clinics/<slug>. Used when a profile URL opened directly comes back
+ * as the site's "page not found" shell even though the clinic is live (the page only renders when
+ * reached from the site's own links).
+ */
+export function parseMdApiClinic(data: MdApiClinic, profileUrl: string) {
+  const city = data.location?.city?.name?.trim() ?? ''
+  const country = data.location?.country?.name?.trim() ?? ''
+  const doctors: { name: string; credentials: string; imageUrl: string | null }[] = []
+  for (const d of data.doctors ?? []) {
+    const name = (d.name ?? '').replace(/\s+/g, ' ').trim()
+    if (!name || doctors.some((x) => x.name.toLowerCase() === name.toLowerCase())) continue
+    const years = d.years_of_practicing ? `${d.years_of_practicing} Years of Practice` : ''
+    const associations = (d.associations ?? []).map((a) => a.replace(/\s+/g, ' ').trim()).filter(Boolean)
+    doctors.push({
+      name,
+      credentials: [years, ...associations.slice(0, 2)].filter(Boolean).join('; '),
+      imageUrl: d.photo ? cleanImageUrl(d.photo) : null,
+    })
+  }
+  const galleryImages = (data.photos?.clinic_photos ?? [])
+    .map((p) => (p.image ? cleanImageUrl(p.image) : null))
+    .filter((u): u is string => !!u)
+  const beforeAfterImages = (data.photos?.before_after_photos ?? [])
+    .map((p) => cleanImageUrl(p.combined_image ?? p.after_image ?? p.before_image ?? ''))
+    .filter((u): u is string => !!u)
+  return {
+    brand: 'MD' as Brand,
+    profileUrl,
+    name: (data.name ?? '').trim(),
+    location: [city, country].filter(Boolean).join(', '),
+    galleryImages: unique(galleryImages).slice(0, 30),
+    beforeAfterImages: unique(beforeAfterImages).slice(0, 30),
+    doctors,
+  }
+}

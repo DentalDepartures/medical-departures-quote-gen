@@ -4,7 +4,7 @@
 // GET /api/scrape-clinic?url=https://www.dentaldepartures.com/dentist/<slug>
 
 import { CORS, fetchWithTimeout, json, requireAdmin } from '../edge-lib/google.ts'
-import { brandFromUrl, parseClinic } from '../edge-lib/scrape.ts'
+import { brandFromUrl, mdClinicSlug, parseClinic, parseMdApiClinic } from '../edge-lib/scrape.ts'
 
 export default async (request: Request) => {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS })
@@ -30,11 +30,31 @@ export default async (request: Request) => {
     // name in it is a genuinely missing clinic.
     if (!res.ok && res.status !== 404) return json({ error: `Clinic page returned ${res.status}` }, 502)
     const html = await res.text()
-    const clinic = parseClinic(html, url, brand)
+    let clinic = parseClinic(html, url, brand)
+    // Some live MD clinics come back as the site's "page not found" shell when the URL is opened
+    // directly; the site's own pages read them from its API, so do the same.
+    if (!clinic.name && brand === 'MD') {
+      const fromApi = await readMdApi(url)
+      if (fromApi?.name) clinic = fromApi
+    }
     if (!clinic.name && !res.ok) return json({ error: `Clinic page returned ${res.status}` }, 502)
     if (!clinic.name) return json({ error: 'Could not find the clinic name on that page. Is it a clinic profile URL?' }, 422)
     return json(clinic)
   } catch (err) {
     return json({ error: `Scrape failed: ${String(err)}` }, 500)
+  }
+}
+
+async function readMdApi(url: string) {
+  const slug = mdClinicSlug(url)
+  if (!slug) return null
+  try {
+    const res = await fetchWithTimeout(`https://api.medicaldepartures.com/core/v1/clinics/${encodeURIComponent(slug)}`, {
+      headers: { Accept: 'application/json', 'X-MD-Site-Id': '4', 'x-locale': 'en-US' },
+    }, 20000)
+    if (!res.ok) return null
+    return parseMdApiClinic(await res.json(), url)
+  } catch {
+    return null
   }
 }
