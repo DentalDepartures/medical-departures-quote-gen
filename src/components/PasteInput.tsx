@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import type { AgentProfile, ClinicRow, SelectedClinic, SelectedDoctor } from '../types'
 import { getProfile, saveProfile, getOpsAgent, saveOpsAgent, getOpsNames, addOpsName } from '../lib/storage'
 import { fetchAgents } from '../lib/api'
+import { readPdfText } from '../lib/pdfText'
 import { useBrand } from '../contexts/BrandContext'
 import TabBar from './TabBar'
 import ClinicDoctorSelector from './ClinicDoctorSelector'
@@ -43,6 +44,28 @@ export default function PasteInput({ rows, clinicsLoading, clinicsError, totalCl
   const [agentSaved, setAgentSaved] = useState(!!saved)
   const [text, setText] = useState('')
   const [splitTreatments, setSplitTreatments] = useState(false)
+  // Clinic PDF upload: its text is read in the browser and put in the box below for the usual extraction
+  const [pdfStatus, setPdfStatus] = useState<{ kind: 'reading' | 'ok' | 'error'; msg: string } | null>(null)
+  const pdfInputRef = useRef<HTMLInputElement | null>(null)
+
+  async function handlePdf(file: File | undefined) {
+    if (!file) return
+    setPdfStatus({ kind: 'reading', msg: `Reading “${file.name}”…` })
+    try {
+      const { text: pdfText, pages } = await readPdfText(file)
+      if (pdfText.replace(/--- Page \d+ ---/g, '').trim().length < 80) {
+        setPdfStatus({ kind: 'error', msg: `“${file.name}” has no readable text (it looks like a scan or photo). Copy the patient, treatment and prices into the box by hand.` })
+        return
+      }
+      setText(`Clinic PDF: ${file.name}\n\n${pdfText}`)
+      setFieldErrors((p) => ({ ...p, text: undefined }))
+      setPdfStatus({ kind: 'ok', msg: `Read “${file.name}” (${pages} page${pages === 1 ? '' : 's'}). Its text is in the box below — check it, add anything missing, then press Extract.` })
+    } catch (err) {
+      setPdfStatus({ kind: 'error', msg: `Could not read “${file.name}”: ${err instanceof Error ? err.message : String(err)}` })
+    } finally {
+      if (pdfInputRef.current) pdfInputRef.current.value = ''
+    }
+  }
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [selectedClinic, setSelectedClinic] = useState<SelectedClinic | null>(null)
   const [selectedDoctor, setSelectedDoctor] = useState<SelectedDoctor | null>(null)
@@ -411,12 +434,41 @@ export default function PasteInput({ rows, clinicsLoading, clinicsError, totalCl
           <div style={{ borderTop: '1px solid #f0f0f0', marginBottom: 20, marginTop: 4 }} />
 
           {/* Raw data */}
-          <div
-            className="text-xs font-bold tracking-widest uppercase mb-3"
-            style={{ color: config.primary }}
-          >
-            Raw Quote Data
+          <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+            <div
+              className="text-xs font-bold tracking-widest uppercase"
+              style={{ color: config.primary }}
+            >
+              Raw Quote Data
+            </div>
+            <button
+              type="button"
+              onClick={() => pdfInputRef.current?.click()}
+              disabled={isLoading || pdfStatus?.kind === 'reading'}
+              className="text-xs font-semibold rounded-lg px-3 py-2"
+              style={{ border: `1.5px solid ${config.primary}`, color: config.primary, background: 'white', cursor: 'pointer' }}
+            >
+              📄 Upload clinic PDF
+            </button>
+            <input
+              ref={pdfInputRef}
+              type="file"
+              accept="application/pdf,.pdf"
+              style={{ display: 'none' }}
+              onChange={(e) => void handlePdf(e.target.files?.[0])}
+            />
           </div>
+          {pdfStatus && (
+            <p
+              className="text-xs mb-2 rounded-lg px-3 py-2"
+              style={{
+                background: pdfStatus.kind === 'error' ? '#fdecec' : pdfStatus.kind === 'ok' ? '#eefbf1' : '#f4f6f8',
+                color: pdfStatus.kind === 'error' ? '#b3261e' : '#333',
+              }}
+            >
+              {pdfStatus.msg}
+            </p>
+          )}
 
           <form onSubmit={handleSubmit}>
             <textarea
@@ -425,7 +477,7 @@ export default function PasteInput({ rows, clinicsLoading, clinicsError, totalCl
                 setText(e.target.value)
                 if (e.target.value.trim()) setFieldErrors((p) => ({ ...p, text: undefined }))
               }}
-              placeholder="Paste the clinic's quote here — WhatsApp messages, emails, PDFs all work. Include treatment name, price, inclusions, and patient details."
+              placeholder="Paste the clinic's quote here — WhatsApp messages and emails all work — or press “Upload clinic PDF” above. Include treatment name, price, inclusions, and patient details."
               disabled={isLoading}
               className="w-full rounded-lg px-4 py-3 text-sm outline-none resize-y"
               style={{

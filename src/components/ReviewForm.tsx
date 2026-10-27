@@ -9,7 +9,7 @@ interface Props {
   isGenerating: boolean
 }
 
-const CURRENCIES = ['THB', 'USD', 'MXN', 'EUR', 'BRL', 'GBP', 'AUD', 'CAD', 'SGD', 'HKD', 'IDR']
+const CURRENCIES = ['THB', 'USD', 'MXN', 'EUR', 'BRL', 'GBP', 'AUD', 'CAD', 'SGD', 'HKD', 'IDR', 'VND', 'TRY', 'KRW', 'COP', 'CRC', 'PLN', 'HUF']
 
 const LIMITS = { inclusions: 30, exclusions: 7, notes: 23 }
 
@@ -190,7 +190,8 @@ function QuoteEditor({
               value={q.currency}
               onChange={(e) => set('currency', e.target.value)}
             >
-              {CURRENCIES.map((c) => (
+              {/* Always offer the currency the AI found, so an unlisted one is never shown as THB */}
+              {(q.currency && !CURRENCIES.includes(q.currency) ? [...CURRENCIES, q.currency] : CURRENCIES).map((c) => (
                 <option key={c} value={c}>
                   {c}
                 </option>
