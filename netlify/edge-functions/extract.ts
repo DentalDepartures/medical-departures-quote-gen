@@ -94,11 +94,12 @@ Action:
 // Default: keep a clinic's treatment plan together — one quote per plan, or per option when the clinic offers options
 const COMBINE_RULES = `=== DECISION LOGIC — HOW MANY QUOTES TO CREATE ===
 
-The agent wants each treatment plan kept together in ONE quote. Never split one plan into a separate quote per treatment.
+The agent wants ONE quote for the patient. Never split treatments into separate quotes.
+If the text holds several treatments, treatment plans, quotes or documents for the same patient — even pasted one after another, each with its own price or total — they are ONE combined plan: put them all in one quote and add up their totals.
 
 Before producing output, silently decide which rule applies:
-1. Does the clinic offer clearly labelled alternatives the patient chooses between (e.g. "Option 1 / Option 2", "Plan A / Plan B", "Package 1 / Package 2", or two separate treatment plans/documents for the same patient)? → RULE A
-2. Otherwise → RULE B (everything is one plan = one quote)
+1. Does the clinic explicitly present alternatives the patient must choose ONE of, using words like "Option 1 / Option 2", "Plan A / Plan B", "Package 1 / Package 2", "or", "alternatively", "choose between"? → RULE A
+2. Otherwise → RULE B (everything is one plan = one quote). When unsure, use RULE B.
 
 --- RULE A: Clinic options = ONE quote PER OPTION ---
 - Create one quote per option, in the order the clinic gives them. Never split an option into its treatments.
@@ -108,9 +109,10 @@ Before producing output, silently decide which rule applies:
 --- RULE B: One treatment plan = ONE quote ---
 Use for everything quoted for the patient as one plan, even when it mixes different treatment categories (e.g. Overlays + Crowns + Cleaning, or Rhinoplasty + Earlobe Reduction).
 - treatmentName: the plan or package name if the clinic gives one, otherwise the treatments joined with " + " (short, max ~60 characters, e.g. "Overlays + Crowns")
-- price: the plan TOTAL — the total stated by the clinic, or if none is stated, the sum of the final price of every item in the plan. pricePrefix: null
+- price: the plan TOTAL — the total stated by the clinic, or if none is stated, the sum of the final price of every item in the plan. When several plans/quotes are combined, add up each one's total. pricePrefix: null
+- If combined plans use different currencies, keep the currency of the largest amount and add a line in importantNotes with each plan's original price
 - Exception — alternatives inside a plan: if items are variations of the same treatment where the patient picks only one (e.g. liposuction areas, implant brands, crown materials), do not add them up: use the lowest price with pricePrefix "Starting from" and list each variation with its price in importantNotes as "  - [Variation]: [PRICE] [CURRENCY]"
-- inclusions: first one line per treatment with its quantity and price, e.g. "Overlay x8 (teeth 14, 15, 16, 17, 24, 25, 36, 46): 60,000 MXN", then the package inclusions (hotel, transfers, consultation, etc.)
+- inclusions: first one line per treatment with its quantity and price, e.g. "Overlay x8 (teeth 14, 15, 16, 17, 24, 25, 36, 46): 60,000 MXN" (for a combined plan, one line per plan with its total, e.g. "All-on-4 with Zirconia Crown: 12,000 USD"), then the package inclusions (hotel, transfers, consultation, etc.) without repeating the same item twice
 - Visits, phases and timing (e.g. "Day 1: preparation and scanning") go in importantNotes
 - exclusions and importantNotes are shared by the whole plan — never repeat the same line
 
