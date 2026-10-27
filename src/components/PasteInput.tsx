@@ -453,7 +453,7 @@ export default function PasteInput({ rows, clinicsLoading, clinicsError, totalCl
               <span>
                 <strong>Separate quote for each treatment</strong>
                 <span style={{ color: '#999' }}>
-                  {' '}— leave unticked to get one quote per treatment plan (one per option if the clinic gives options), with the total price and each treatment listed inside.
+                  {' '}— leave unticked to get ONE quote for the patient: treatments are added up into a total, and clinic options are listed inside with their prices ("Starting from" the cheapest).
                 </span>
               </span>
             </label>

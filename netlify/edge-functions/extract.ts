@@ -94,17 +94,19 @@ Action:
 // Default: keep a clinic's treatment plan together — one quote per plan, or per option when the clinic offers options
 const COMBINE_RULES = `=== DECISION LOGIC — HOW MANY QUOTES TO CREATE ===
 
-The agent wants ONE quote for the patient. Never split treatments into separate quotes.
+The agent wants ONE quote file for the patient. Return a JSON array with EXACTLY ONE element — never more, whatever the text contains.
 If the text holds several treatments, treatment plans, quotes or documents for the same patient — even pasted one after another, each with its own price or total — they are ONE combined plan: put them all in one quote and add up their totals.
 
 Before producing output, silently decide which rule applies:
 1. Does the clinic explicitly present alternatives the patient must choose ONE of, using words like "Option 1 / Option 2", "Plan A / Plan B", "Package 1 / Package 2", "or", "alternatively", "choose between"? → RULE A
 2. Otherwise → RULE B (everything is one plan = one quote). When unsure, use RULE B.
 
---- RULE A: Clinic options = ONE quote PER OPTION ---
-- Create one quote per option, in the order the clinic gives them. Never split an option into its treatments.
-- treatmentName: the option label plus a short summary, e.g. "Option 1: Overlays + Crowns"
-- Build each option's quote with RULE B.
+--- RULE A: Clinic options = still ONE quote, with every option inside ---
+- Do NOT add the options up — the patient picks one.
+- treatmentName: the shared treatment plus the number of options, e.g. "All-on-4 Upper Arch — 2 options" (max ~60 characters)
+- price: the LOWEST option's price, pricePrefix: "Starting from"
+- inclusions: first one line per option with its label, short summary and price, e.g. "Option 1 – All-on-4 with acrylic teeth: 8,900 USD", "Option 2 – All-on-4 with zirconia teeth: 12,500 USD"; then the inclusions shared by all options; an inclusion that only one option has gets the option in brackets, e.g. "5-year warranty on zirconia (Option 2)"
+- exclusions and importantNotes: shared lines once; a note that differs per option starts with the option, e.g. "- Option 2: second visit 7 days after 4–6 months"
 
 --- RULE B: One treatment plan = ONE quote ---
 Use for everything quoted for the patient as one plan, even when it mixes different treatment categories (e.g. Overlays + Crowns + Cleaning, or Rhinoplasty + Earlobe Reduction).
