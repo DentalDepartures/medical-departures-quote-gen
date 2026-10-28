@@ -140,14 +140,22 @@ export async function generateQuotePDFv3(
 
   // Agent headshot: a photo shipped with the app as public/agents/<email name>.jpg (until the Agents tab has a photo column)
   const emailName = (agent.email || '').split('@')[0].trim().toLowerCase()
-  const [logo, hero, providerPhoto, photo2, agentPhoto] = await Promise.all([
+  const [logo, hero, doctorPhoto, agentPhoto] = await Promise.all([
     trimmedLogo(brand),
     shapedImage(photos.clinic, 333, 396, 'hero', colors),
-    doctor
-      ? shapedImage(quote.doctorImageUrl, 84, 84, 'circle', colors)
-      : shapedImage(photo2Url, 96, 72, 'rounded', colors, 10),
-    doctor ? shapedImage(photo2Url, 173, 130, 'rounded', colors, 13) : Promise.resolve(null),
+    doctor ? shapedImage(quote.doctorImageUrl, 84, 84, 'circle', colors) : Promise.resolve(null),
     emailName ? shapedImage(asset(`agents/${emailName}.jpg`), 56, 56, 'circle', colors) : Promise.resolve(null),
+  ])
+  // A doctor typed by hand (or one whose headshot won't load) shows clinic photo 2 in the circle instead of
+  // an empty panel; photo 2 is then used up, so page 2 gets no photo
+  const doctorHasPhoto = !!doctorPhoto?.isPhoto
+  const [providerPhoto, photo2] = await Promise.all([
+    doctorHasPhoto
+      ? Promise.resolve(doctorPhoto!)
+      : doctor
+        ? shapedImage(photo2Url, 84, 84, 'circle', colors)
+        : shapedImage(photo2Url, 96, 72, 'rounded', colors, 10),
+    doctorHasPhoto ? shapedImage(photo2Url, 173, 130, 'rounded', colors, 13) : Promise.resolve(null),
   ])
 
   const items = (quote.inclusions ?? []).map(splitItem).filter((it) => it.text)
