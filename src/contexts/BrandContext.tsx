@@ -1,4 +1,5 @@
 import { createContext, useContext, useState } from 'react'
+import { asset } from '../lib/env'
 
 export type Brand = 'DD' | 'MD'
 
@@ -16,7 +17,7 @@ export interface BrandConfig {
 export const BRAND_CONFIGS: Record<Brand, BrandConfig> = {
   DD: {
     brand: 'DD',
-    logo: '/dd-logo.png',
+    logo: asset('dd-logo.png'),
     primary: '#52bdec',
     primaryText: '#58585a',
     accent: '#f5f5f5',
@@ -26,7 +27,7 @@ export const BRAND_CONFIGS: Record<Brand, BrandConfig> = {
   },
   MD: {
     brand: 'MD',
-    logo: '/md-logo.png',
+    logo: asset('md-logo.png'),
     primary: '#00467f',
     primaryText: '#ffffff',
     accent: '#e51b24',

@@ -2,10 +2,12 @@
 // Loads an image through the same-origin proxy, cover-fits it into a box and rounds the corners,
 // returning PNG bytes (transparent corners) ready for pdf-lib's embedPng.
 
+import { api } from './env'
+
 const SCALE = 2 // raster pixels per PDF point — crisp on screen and print without huge files
 
 export function proxiedUrl(url: string): string {
-  return `/api/fetch-file?url=${encodeURIComponent(url)}`
+  return api(`/api/fetch-file?url=${encodeURIComponent(url)}`)
 }
 
 export async function fetchBytes(url: string): Promise<Uint8Array> {

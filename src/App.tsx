@@ -13,6 +13,7 @@ import ApiKeySetup from './components/ApiKeySetup'
 import AddClinic from './components/AddClinic'
 import AdminApp from './components/AdminApp'
 import { IS_ADMIN } from './lib/appMode'
+import { TEST_MODE, PDF_DESIGN } from './lib/env'
 
 function todayDDMMYYYY(): string {
   const d = new Date()
@@ -139,6 +140,8 @@ function AppContent() {
         try {
           const { pdfBytes, filename, quoteId } = await generateQuotePDF(quote, profile, brand)
           finished.push({ ...quote, quoteId })
+          // Test build: the PDF is only downloaded — nothing goes to Drive or the Quotes Tracker
+          if (TEST_MODE) continue
           const label = quote.treatmentName || 'Quote'
           let webViewLink = ''
           let uploadError = ''
@@ -161,7 +164,7 @@ function AppContent() {
           const msg = String(pdfErr)
           finished.push(quote)
           failures.push(`${quote.treatmentName || 'Quote'} — PDF failed: ${msg}`)
-          void reportError({ errorType: 'pdf', message: msg, step: 'PDF generation / download', patientName: quote.patientName, agentName: profile.name, agentEmail: profile.email })
+          if (!TEST_MODE) void reportError({ errorType: 'pdf', message: msg, step: 'PDF generation / download', patientName: quote.patientName, agentName: profile.name, agentEmail: profile.email })
         }
       }
       if (failures.length > 0) {
@@ -266,6 +269,11 @@ function AppContent() {
 export default function App() {
   return (
     <BrandProvider>
+      {TEST_MODE && (
+        <div style={{ background: '#fff3cd', color: '#6b4e00', fontSize: 13, fontWeight: 600, textAlign: 'center', padding: '8px 16px' }}>
+          TEST VERSION{PDF_DESIGN === 'v3' ? ' · new v3 quote design' : ''} — quotes are only downloaded, not saved to Drive or the Quotes Tracker.
+        </div>
+      )}
       {IS_ADMIN ? <AdminApp /> : <AppContent />}
     </BrandProvider>
   )

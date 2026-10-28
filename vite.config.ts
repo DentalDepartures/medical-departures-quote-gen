@@ -3,10 +3,8 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  // In dev, proxy /api/extract to avoid CORS when using a local proxy server.
-  // For production (Vercel), the api/ directory is deployed as serverless functions.
-  // If running pure vite dev without Vercel, the app falls back to direct Anthropic
-  // calls using the API key stored in localStorage.
+  // The GitHub Pages test build is served from /<repo>/, so it sets VITE_BASE; Netlify serves from /
+  base: process.env.VITE_BASE || '/',
   server: {
     port: 3000,
   },

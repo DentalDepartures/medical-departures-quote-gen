@@ -1,5 +1,6 @@
 import type { QuoteData } from '../types'
 import { getApiKey } from './storage'
+import { api, API_BASE } from './env'
 
 const SYSTEM_PROMPT = `You are a medical/dental tourism quote extraction specialist.
 Extract structured data from the provided quote text and return ONLY a valid JSON array.
@@ -87,9 +88,11 @@ export async function extractQuoteData(rawText: string, splitTreatments = false)
   // 1. Try server-side proxy first (holds the API key securely)
   let networkFailure = false
   try {
-    const res = await fetch('/api/extract', {
+    const res = await fetch(api('/api/extract'), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      // From another site (the GitHub Pages test build) a text/plain body needs no CORS pre-check;
+      // the server reads the JSON either way
+      headers: { 'Content-Type': API_BASE ? 'text/plain;charset=UTF-8' : 'application/json' },
       body: JSON.stringify({ rawText, splitTreatments }),
     })
     const data = await res.json()

@@ -1,13 +1,17 @@
 import type { QuoteData, AgentProfile, Brand } from '../types'
 import { generateQuotePDFBytes } from './pdfOverlay'
 import { fetchBytes, prepareImage } from './imagePrep'
+import { PDF_DESIGN } from './env'
 
 export async function generateQuotePDF(
   quote: QuoteData,
   agent: AgentProfile,
   brand: Brand,
 ): Promise<{ pdfBytes: Uint8Array; filename: string; quoteId: string }> {
-  const result = await generateQuotePDFBytes(quote, agent, brand, { fetchBytes, prepareImage })
+  // The v3 layout engine is loaded only by builds that use it
+  const result = PDF_DESIGN === 'v3'
+    ? await (await import('./v3/generateV3')).generateQuotePDFv3(quote, agent, brand)
+    : await generateQuotePDFBytes(quote, agent, brand, { fetchBytes, prepareImage })
 
   // Trigger browser download
   const { pdfBytes, filename } = result

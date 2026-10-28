@@ -1,5 +1,6 @@
 import type { QuoteData } from '../types'
 import { useBrand } from '../contexts/BrandContext'
+import { TEST_MODE } from '../lib/env'
 
 interface Props {
   quotes: QuoteData[]
@@ -63,9 +64,11 @@ export default function QuoteDone({ quotes, onNewQuote }: Props) {
         </button>
 
         <p className="text-xs text-gray-400 mt-8">
-          {count > 1
-            ? `${count} PDF files have been saved to your downloads folder and to the clinic's Drive folder.`
-            : "The PDF has been saved to your downloads folder and to the clinic's Drive folder."}
+          {TEST_MODE
+            ? `Test version: ${count > 1 ? `${count} PDF files were` : 'the PDF was'} saved to your downloads folder only.`
+            : count > 1
+              ? `${count} PDF files have been saved to your downloads folder and to the clinic's Drive folder.`
+              : "The PDF has been saved to your downloads folder and to the clinic's Drive folder."}
         </p>
       </div>
     </div>

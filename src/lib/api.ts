@@ -1,5 +1,6 @@
 import type { ClinicRow, QuoteData, AgentProfile, ScrapedClinic, NewClinicPayload } from '../types'
 import { getAdminKey } from './appMode'
+import { api } from './env'
 
 const adminHeaders = (): Record<string, string> => (getAdminKey() ? { 'x-admin-key': getAdminKey() } : {})
 
@@ -16,7 +17,7 @@ async function parseJson<T>(res: Response, what: string): Promise<T> {
 }
 
 export async function fetchClinicRows(): Promise<ClinicRow[]> {
-  const data = await parseJson<{ rows?: ClinicRow[] }>(await fetch('/api/clinics'), 'Clinics API')
+  const data = await parseJson<{ rows?: ClinicRow[] }>(await fetch(api('/api/clinics')), 'Clinics API')
   return data.rows ?? []
 }
 
@@ -33,7 +34,7 @@ const DEFAULT_AGENTS: AgentProfile[] = [
 /** Sales agents for the "Choose the sales agent" dropdown. Never throws and never comes back empty. */
 export async function fetchAgents(): Promise<AgentProfile[]> {
   try {
-    const data = await parseJson<{ agents?: AgentProfile[] }>(await fetch('/api/agents'), 'Agents API')
+    const data = await parseJson<{ agents?: AgentProfile[] }>(await fetch(api('/api/agents')), 'Agents API')
     return data.agents?.length ? data.agents : DEFAULT_AGENTS
   } catch {
     return DEFAULT_AGENTS
@@ -41,12 +42,12 @@ export async function fetchAgents(): Promise<AgentProfile[]> {
 }
 
 export async function scrapeClinic(url: string): Promise<ScrapedClinic> {
-  return parseJson<ScrapedClinic>(await fetch(`/api/scrape-clinic?url=${encodeURIComponent(url)}`, { headers: adminHeaders() }), 'Clinic page reader')
+  return parseJson<ScrapedClinic>(await fetch(api(`/api/scrape-clinic?url=${encodeURIComponent(url)}`), { headers: adminHeaders() }), 'Clinic page reader')
 }
 
 export async function addClinic(payload: NewClinicPayload): Promise<{ ok: boolean; folder?: string; rowsAdded: number; skipped?: number; warnings?: string[] }> {
   return parseJson(
-    await fetch('/api/add-clinic', { method: 'POST', headers: { 'Content-Type': 'application/json', ...adminHeaders() }, body: JSON.stringify(payload) }),
+    await fetch(api('/api/add-clinic'), { method: 'POST', headers: { 'Content-Type': 'application/json', ...adminHeaders() }, body: JSON.stringify(payload) }),
     'Add clinic',
   )
 }
@@ -67,7 +68,7 @@ export async function uploadQuote(params: {
   const pdfBase64 = btoa(chunks.join(''))
 
   return parseJson(
-    await fetch('/api/upload-quote', {
+    await fetch(api('/api/upload-quote'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ pdfBase64, filename, brand, googleFolder: quote.googleFolder }),
@@ -106,7 +107,7 @@ export async function logQuote(params: {
   for (const wait of [0, 3000, 8000]) {
     if (wait) await new Promise((r) => setTimeout(r, wait))
     try {
-      await parseJson(await fetch('/api/log-quote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }), 'Quotes Tracker')
+      await parseJson(await fetch(api('/api/log-quote'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }), 'Quotes Tracker')
       return
     } catch (err) {
       lastErr = err
@@ -124,7 +125,7 @@ export async function reportError(params: {
   agentEmail?: string | null
 }): Promise<void> {
   try {
-    await fetch('/api/report-error', {
+    await fetch(api('/api/report-error'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...params, timestamp: new Date().toISOString() }),

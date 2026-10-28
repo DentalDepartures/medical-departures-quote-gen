@@ -2,6 +2,7 @@ import { PDFDocument, PDFString, rgb, type PDFFont, type PDFPage, type PDFImage 
 import fontkit from '@pdf-lib/fontkit'
 import type { QuoteData, AgentProfile, Brand } from '../types'
 import { NO_DOCTOR } from '../types'
+import { api, asset } from './env'
 
 // ── Colors ────────────────────────────────────────────────────────────────────
 const WHITE = rgb(1, 1, 1)
@@ -151,7 +152,7 @@ export function withUtm(url: string, brand: Brand, quoteId: string, clinicName: 
 }
 
 function templatePath(brand: Brand, hasDoctor: boolean): string {
-  return `/templates/${brand.toLowerCase()}_${hasDoctor ? 'doctor' : 'nodoctor'}.pdf`
+  return asset(`templates/${brand.toLowerCase()}_${hasDoctor ? 'doctor' : 'nodoctor'}.pdf`)
 }
 
 function hasDoctor(quote: QuoteData): boolean {
@@ -175,12 +176,12 @@ export async function generateQuotePDFBytes(
 
   const [templateBytes, boldBytes, regularBytes, checkBytes, xBytes, brandBytes] = await Promise.all([
     legacyTemplate
-      ? deps.fetchBytes(`/api/fetch-file?url=${encodeURIComponent(quote.templatePdfUrl!.trim())}`)
+      ? deps.fetchBytes(api(`/api/fetch-file?url=${encodeURIComponent(quote.templatePdfUrl!.trim())}`))
       : deps.fetchBytes(templatePath(brand, doctor)),
-    deps.fetchBytes('/fonts/Montserrat-Bold.ttf'),
-    deps.fetchBytes('/fonts/Montserrat-Regular.ttf'),
-    deps.fetchBytes('/check.png'),
-    deps.fetchBytes('/X.png'),
+    deps.fetchBytes(asset('fonts/Montserrat-Bold.ttf')),
+    deps.fetchBytes(asset('fonts/Montserrat-Regular.ttf')),
+    deps.fetchBytes(asset('check.png')),
+    deps.fetchBytes(asset('X.png')),
     // Old per-clinic templates differ from the brand layout in places; regions are patched from the brand template.
     legacyTemplate ? deps.fetchBytes(templatePath(brand, doctor)) : Promise.resolve(null),
   ])
