@@ -22,9 +22,11 @@ all currencies including IDR and VND, and the review screen.
 
 ## Notes
 
-- Clinics without photo links in the Clinic App sheet (mostly the older ones) show a brand-colour panel instead of photos.
-- Agent headshots live in `public/agents/<email name>.jpg` (e.g. `aileen.castro.jpg`) for this test; the real app
+- Every clinic gets 2 photos. Clinics without photo links in the Clinic App sheet (mostly the older ones) use 2 photos
+  picked from their DD/MD profile pages, kept in `public/clinic-photos.json` (keyed by profile URL).
+- All 6 sales agents have headshots in `public/agents/<email name>.jpg` for this test; the real app
   would take them from a Photo column in the Agents tab.
+- The last page carries the in-person examination terms (dental or medical wording); the footer repeats them in short.
 - The v3 layout code is in `src/lib/v3/`. Build switches are in `src/lib/env.ts`.
 
 ## Rebuilding the test site

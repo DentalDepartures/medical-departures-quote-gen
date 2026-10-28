@@ -56,6 +56,19 @@ async function trimmedLogo(brand: Brand): Promise<string> {
   }
 }
 
+/**
+ * Two photos for clinics whose sheet row has none (or only one): picked from their DD/MD profile pages
+ * and shipped with the app as public/clinic-photos.json, keyed by profile URL.
+ */
+let clinicPhotos: Promise<Record<string, { clinic: string; second: string }>> | null = null
+async function photosFor(quote: QuoteData): Promise<{ clinic: string | null; second: string | null }> {
+  clinicPhotos ??= fetch(asset('clinic-photos.json')).then((r) => (r.ok ? r.json() : {})).catch(() => ({}))
+  const extra = quote.clinicProfileUrl ? (await clinicPhotos)[quote.clinicProfileUrl.trim()] : undefined
+  const clinic = quote.clinicImageUrl || extra?.clinic || null
+  const second = [quote.beforeAfterImageUrl, extra?.second, extra?.clinic].find((u) => u && u !== clinic) || null
+  return { clinic, second }
+}
+
 const isNoDoctor = (n: string | null | undefined) => !n || !n.trim() || n.trim().toLowerCase() === 'no doctor'
 
 export function formatPrice(price: number | null, currency: string): string {
@@ -122,13 +135,14 @@ export async function generateQuotePDFv3(
   const c = V3_BRAND[brand]
   const colors = { light: c.sky, dark: c.navy }
   const doctor = !isNoDoctor(quote.surgeonName)
-  const photo2Url = quote.beforeAfterImageUrl || quote.clinicImageUrl
+  const photos = await photosFor(quote)
+  const photo2Url = photos.second || photos.clinic
 
   // Agent headshot: a photo shipped with the app as public/agents/<email name>.jpg (until the Agents tab has a photo column)
   const emailName = (agent.email || '').split('@')[0].trim().toLowerCase()
   const [logo, hero, providerPhoto, photo2, agentPhoto] = await Promise.all([
     trimmedLogo(brand),
-    shapedImage(quote.clinicImageUrl, 333, 396, 'hero', colors),
+    shapedImage(photos.clinic, 333, 396, 'hero', colors),
     doctor
       ? shapedImage(quote.doctorImageUrl, 84, 84, 'circle', colors)
       : shapedImage(photo2Url, 96, 72, 'rounded', colors, 10),

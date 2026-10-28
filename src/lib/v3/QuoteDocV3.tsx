@@ -74,9 +74,16 @@ function Footer({ c }: { c: V3Colors & { site: string } }) {
   return (
     <View fixed style={[s.foot, { borderTopColor: c.pale2 }]}>
       <Text>{c.site}</Text>
-      <Text style={{ textAlign: 'right', maxWidth: 330 }}>Final treatment suitability, scope and pricing depend on clinical assessment by the treating provider.</Text>
+      <Text style={{ textAlign: 'right', maxWidth: 330 }}>Final treatment plan and price are confirmed after an in-person examination.</Text>
     </View>
   )
+}
+
+/** The in-person examination terms (Jacob's wording), dental or medical. */
+function examTerms(brand: 'DD' | 'MD'): string {
+  return brand === 'DD'
+    ? 'Please note that an in-person oral examination is needed for final determination of your dental needs and subsequent treatment. The procedures you require may be different from this quote based on the results of your oral examination. The treatment plan recommended by the global dental provider will be discussed and agreed upon in person prior to treatment.'
+    : 'Please note that an in-person consultation and examination is needed for final determination of your medical needs and subsequent treatment. The procedures you require may be different from this quote based on the results of your examination. The treatment plan recommended by the global medical provider will be discussed and agreed upon in person prior to treatment.'
 }
 
 function PageNo({ color, background }: { color: string; background: string }) {
@@ -322,6 +329,12 @@ function Details({ d }: { d: V3Data }) {
                 </Link>
               ) : null}
             </View>
+          </View>
+          <View style={{ marginTop: z(10), borderRadius: 10, backgroundColor: c.pale, paddingVertical: z(8), paddingHorizontal: 12 }}>
+            <Text style={{ fontSize: z(8.4), color: INK, fontWeight: 500, lineHeight: 1.4 }}>
+              <Text style={{ fontWeight: 800, color: c.navy }}>Important: </Text>
+              {examTerms(d.brand)}
+            </Text>
           </View>
         </View>
       </View>
