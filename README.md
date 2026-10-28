@@ -15,7 +15,7 @@ all currencies including IDR and VND, and the review screen.
 
 - **The quote PDF uses the v3 design**: curved clinic photo, personalised proposal title, doctor or clinic card,
   treatment/option tiles, price box, clickable WhatsApp and clinic buttons, coordinator with headshot, and detail pages
-  that grow with the quote (a long quote shrinks one step, then flows onto page 3).
+  that grow with the quote (a longer quote shrinks in up to two steps to stay on 2 pages; only a long one flows onto page 3).
 - **Nothing is saved.** Quotes are only downloaded — no copy in Drive, no row in the Quotes Tracker, no error emails.
   A yellow banner at the top says so.
 - Clinics, agents and the AI come from the live app's API, read-only.

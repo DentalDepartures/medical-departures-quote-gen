@@ -190,12 +190,15 @@ export async function generateQuotePDFv3(
     },
   }
 
-  // Layout rule: a long quote first gets one smaller text step on the detail pages; only if it still
-  // doesn't fit on 2 pages does it flow onto page 3
-  let pdfBytes = new Uint8Array(await (await pdf(<QuoteDocV3 d={data} />).toBlob()).arrayBuffer())
+  // Layout rule: the quote shrinks step by step (spacing, text, photo and blocks on the detail pages) to stay on
+  // 2 pages; only when even the smallest step doesn't fit does it keep full size and flow onto page 3
+  const render = async (k: number) => new Uint8Array(await (await pdf(<QuoteDocV3 d={{ ...data, k }} />).toBlob()).arrayBuffer())
+  let pdfBytes = await render(1)
   if ((await PDFDocument.load(pdfBytes)).getPageCount() > 2) {
-    const smaller = new Uint8Array(await (await pdf(<QuoteDocV3 d={{ ...data, k: 0.82 }} />).toBlob()).arrayBuffer())
-    if ((await PDFDocument.load(smaller)).getPageCount() === 2) pdfBytes = smaller
+    for (const k of [0.88, 0.78]) {
+      const smaller = await render(k)
+      if ((await PDFDocument.load(smaller)).getPageCount() <= 2) { pdfBytes = smaller; break }
+    }
   }
   const filename = `${quote.patientName || 'Quote'} - ${quote.treatmentName || 'Treatment'} - ${quoteId}.pdf`
     .replace(/[\\/:*?"<>|]+/g, ' ')

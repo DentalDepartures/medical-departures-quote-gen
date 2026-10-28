@@ -44,7 +44,7 @@ export interface V3Data {
   excludes: string[]
   notes: string[]
   agent: { name: string; email: string; phone: string; initials: string; whatsapp: string; photo: string | null }
-  k?: number                     // detail-page text scale: 1, or one step smaller to keep a long quote on 2 pages
+  k?: number                     // detail-page scale: 1, or a smaller step that keeps a longer quote on 2 pages
 }
 
 const s = StyleSheet.create({
@@ -232,9 +232,9 @@ function Details({ d }: { d: V3Data }) {
       <View style={{ paddingHorizontal: PAD }}>
         <View style={{ flexDirection: 'row', marginBottom: z(15) }}>
           <View style={{ flex: 1, backgroundColor: c.navy, borderRadius: 14, paddingVertical: z(18), paddingHorizontal: 20, justifyContent: 'center' }}>
-            <Text style={{ color: '#fff', fontSize: 20, fontWeight: 800, lineHeight: 1.05 }}>YOUR {d.kind} PACKAGE</Text>
-            <Text style={{ color: '#fff', fontSize: 12.5, fontWeight: 600, marginTop: 6 }}>Details & next steps</Text>
-            <View style={{ width: 48, height: 4, backgroundColor: c.red, borderRadius: 4, marginTop: 10 }} />
+            <Text style={{ color: '#fff', fontSize: z(20), fontWeight: 800, lineHeight: 1.05 }}>YOUR {d.kind} PACKAGE</Text>
+            <Text style={{ color: '#fff', fontSize: z(12.5), fontWeight: 600, marginTop: z(6) }}>Details & next steps</Text>
+            <View style={{ width: 48, height: 4, backgroundColor: c.red, borderRadius: 4, marginTop: z(10) }} />
           </View>
           {d.photo2 ? <Image src={d.photo2} style={{ width: z(173), height: z(130), marginLeft: 15 }} /> : null}
         </View>
@@ -296,7 +296,7 @@ function Details({ d }: { d: V3Data }) {
               ['Confirm arrangements', 'Your coordinator confirms the date and travel arrangements.'],
             ].map(([b, t], i) => (
               <View key={i} style={{ flex: 1, marginLeft: i ? 12 : 0 }}>
-                <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: c.navy, alignItems: 'center', justifyContent: 'center' }}>
+                <View style={{ width: z(24), height: z(24), borderRadius: z(12), backgroundColor: c.navy, alignItems: 'center', justifyContent: 'center' }}>
                   <Text style={{ color: '#fff', fontSize: 11, fontWeight: 800 }}>{i + 1}</Text>
                 </View>
                 <Text style={{ fontSize: z(10.8), fontWeight: 700, color: c.navy, marginTop: z(5) }}>{b}</Text>
@@ -305,7 +305,7 @@ function Details({ d }: { d: V3Data }) {
             ))}
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: c.navy, borderRadius: 14, paddingVertical: z(13), paddingHorizontal: 16 }}>
-            <Avatar initials={d.agent.initials} photo={d.agent.photo} size={46} border={2.5} />
+            <Avatar initials={d.agent.initials} photo={d.agent.photo} size={z(46)} border={2.5} />
             <View style={{ flex: 1, marginLeft: 11 }}>
               <Text style={{ color: '#fff', fontSize: 9, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', opacity: 0.9 }}>Questions? Your coordinator</Text>
               <Text style={{ color: '#fff', fontSize: 12.5, fontWeight: 800, marginTop: 1 }}>{d.agent.name}</Text>
@@ -313,14 +313,14 @@ function Details({ d }: { d: V3Data }) {
             </View>
             <View style={{ width: 168 }}>
               <Link src={d.agent.whatsapp} style={{ textDecoration: 'none' }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#1fa855', borderRadius: 9, paddingVertical: 8 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#1fa855', borderRadius: 9, paddingVertical: z(8) }}>
                   <Icon name="wa" size={15} color="#fff" />
                   <Text style={{ color: '#fff', fontSize: 9.4, fontWeight: 800, letterSpacing: 0.3, marginLeft: 6 }}>WHATSAPP</Text>
                 </View>
               </Link>
               {d.clinicUrl ? (
-                <Link src={d.clinicUrl} style={{ textDecoration: 'none', marginTop: 7 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', borderRadius: 9, paddingVertical: 8 }}>
+                <Link src={d.clinicUrl} style={{ textDecoration: 'none', marginTop: z(7) }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', borderRadius: 9, paddingVertical: z(8) }}>
                     <Icon name="link" size={14} color={c.navy} />
                     <Text style={{ color: c.navy, fontSize: 9.4, fontWeight: 800, letterSpacing: 0.3, marginLeft: 6 }}>
                       {d.doctorName ? 'VIEW SURGEON & CLINIC' : 'VIEW CLINIC'}
@@ -331,7 +331,7 @@ function Details({ d }: { d: V3Data }) {
             </View>
           </View>
           <View style={{ marginTop: z(10), borderRadius: 10, backgroundColor: c.pale, paddingVertical: z(8), paddingHorizontal: 12 }}>
-            <Text style={{ fontSize: z(8.4), color: INK, fontWeight: 500, lineHeight: 1.4 }}>
+            <Text style={{ fontSize: Math.max(z(8.4), 7.4), color: INK, fontWeight: 500, lineHeight: 1.4 }}>
               <Text style={{ fontWeight: 800, color: c.navy }}>Important: </Text>
               {examTerms(d.brand)}
             </Text>
