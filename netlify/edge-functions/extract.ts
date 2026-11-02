@@ -147,6 +147,57 @@ const CORS = {
   'Access-Control-Allow-Origin': '*',
 }
 
+// The quotes come back through a forced tool call, so the API hands over valid JSON — a quote mark copied from
+// the clinic text (e.g. ("up to")) can no longer break parsing the way free-text JSON did
+const nullable = (type: string) => ({ type: [type, 'null'] })
+const QUOTE_TOOL = {
+  name: 'return_quotes',
+  description: 'Return the extracted quotes (the JSON array described in the instructions).',
+  input_schema: {
+    type: 'object',
+    properties: {
+      quotes: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            patientName: nullable('string'),
+            quoteDate: { type: 'null' },
+            treatmentName: nullable('string'),
+            clinicName: nullable('string'),
+            clinicLocation: nullable('string'),
+            clinicProfileUrl: nullable('string'),
+            price: nullable('number'),
+            pricePrefix: nullable('string'),
+            currency: { type: 'string' },
+            inclusions: { type: 'array', items: { type: 'string' } },
+            exclusions: { type: 'array', items: { type: 'string' } },
+            surgeonName: nullable('string'),
+            surgeonTitle: nullable('string'),
+            accreditations: nullable('string'),
+            importantNotes: nullable('string'),
+          },
+          required: ['treatmentName', 'price', 'currency', 'inclusions', 'exclusions'],
+        },
+      },
+    },
+    required: ['quotes'],
+  },
+}
+
+/** Free-text fallback, for a reply without the tool call */
+function parseText(text: string): unknown {
+  try {
+    return JSON.parse(text)
+  } catch {
+    const arr = text.match(/\[[\s\S]*\]/)
+    if (arr) return JSON.parse(arr[0])
+    const obj = text.match(/\{[\s\S]*\}/)
+    if (!obj) throw new Error('No JSON in AI response')
+    return [JSON.parse(obj[0])]
+  }
+}
+
 export default async (request: Request) => {
   if (request.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: CORS })
@@ -188,8 +239,10 @@ export default async (request: Request) => {
       },
       body: JSON.stringify({
         model,
-        max_tokens: 4096,
+        max_tokens: 8192,
         system: systemPrompt(splitTreatments),
+        tools: [QUOTE_TOOL],
+        tool_choice: { type: 'tool', name: QUOTE_TOOL.name },
         messages: [{ role: 'user', content: `Extract the quote data from this text:\n\n${rawText}` }],
       }),
     })
@@ -202,21 +255,14 @@ export default async (request: Request) => {
       )
     }
 
-    const result = await anthropicRes.json() as { content: { text: string }[] }
-    const text = result.content?.[0]?.text ?? ''
-
-    let parsed: unknown
-    try {
-      parsed = JSON.parse(text)
-    } catch {
-      const arr = text.match(/\[[\s\S]*\]/)
-      if (arr) { parsed = JSON.parse(arr[0]) }
-      else {
-        const obj = text.match(/\{[\s\S]*\}/)
-        if (!obj) throw new Error('No JSON in AI response')
-        parsed = [JSON.parse(obj[0])]
-      }
+    const result = await anthropicRes.json() as {
+      content?: { type: string; text?: string; input?: { quotes?: unknown } }[]
+      stop_reason?: string
     }
+    if (result.stop_reason === 'max_tokens') throw new Error('The quote text is too long for one go — split it into smaller parts and extract each')
+    const call = result.content?.find((c) => c.type === 'tool_use')
+    const parsed: unknown = call?.input?.quotes
+      ?? parseText(result.content?.find((c) => c.type === 'text')?.text ?? '')
 
     // Always return an array
     const asArray = Array.isArray(parsed) ? parsed : [parsed]
