@@ -35,6 +35,8 @@ Return a JSON ARRAY where each element matches this schema (null for missing fie
 - accreditations: combine all accreditation details into one string
 - importantNotes: each note on its own line, prefixed with "- ". Use actual newlines between notes
 - Do NOT invent details not present in the source text
+- Inside text values never use double quote marks — write 'up to' instead of "up to"
+- Fill the return_quotes tool with real objects in the quotes array, never one JSON string
 - Shared fields (clinicName, clinicLocation, surgeonName, etc.) must be duplicated across all quote objects when multiple quotes are created
 - price: always a plain number (strip all currency symbols and commas) or null
 - pricePrefix: "Starting from" or null
@@ -185,16 +187,34 @@ const QUOTE_TOOL = {
   },
 }
 
-/** Free-text fallback, for a reply without the tool call */
+/**
+ * JSON.parse that survives quote marks the AI copied into a text value unescaped, e.g. maximums ("up to"):
+ * the parser stops just after such a quote, so the last quote before that spot is escaped and parsing retried.
+ */
+function parseLenient(text: string): unknown {
+  let s = text
+  for (let tries = 0; ; tries++) {
+    try {
+      return JSON.parse(s)
+    } catch (err) {
+      const at = Number(String(err).match(/position (\d+)/)?.[1] ?? NaN)
+      const q = Number.isNaN(at) ? -1 : s.lastIndexOf('"', at - 1)
+      if (tries >= 40 || q <= 0) throw err
+      s = s.slice(0, q) + '\\"' + s.slice(q + 1)
+    }
+  }
+}
+
+/** Free-text fallback, for a reply without the tool call (or the whole list sent as one string) */
 function parseText(text: string): unknown {
   try {
-    return JSON.parse(text)
+    return parseLenient(text)
   } catch {
     const arr = text.match(/\[[\s\S]*\]/)
-    if (arr) return JSON.parse(arr[0])
+    if (arr) return parseLenient(arr[0])
     const obj = text.match(/\{[\s\S]*\}/)
     if (!obj) throw new Error('No JSON in AI response')
-    return [JSON.parse(obj[0])]
+    return [parseLenient(obj[0])]
   }
 }
 
@@ -261,8 +281,11 @@ export default async (request: Request) => {
     }
     if (result.stop_reason === 'max_tokens') throw new Error('The quote text is too long for one go — split it into smaller parts and extract each')
     const call = result.content?.find((c) => c.type === 'tool_use')
-    const parsed: unknown = call?.input?.quotes
-      ?? parseText(result.content?.find((c) => c.type === 'text')?.text ?? '')
+    // Long quotes sometimes come back as the whole JSON list in one string instead of real objects
+    const quotes = call?.input?.quotes
+    const parsed: unknown = typeof quotes === 'string'
+      ? parseText(quotes)
+      : quotes ?? parseText(result.content?.find((c) => c.type === 'text')?.text ?? '')
 
     // Always return an array
     const asArray = Array.isArray(parsed) ? parsed : [parsed]
