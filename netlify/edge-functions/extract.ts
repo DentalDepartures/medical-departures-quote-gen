@@ -133,6 +133,11 @@ Priority order (use highest available):
 For same-category variations: use the lowest promotion/final price as the main price. Put all variation prices in importantNotes.
 For different treatment categories: extract only the promotion/final price for each procedure separately.
 
+=== NO CLINIC CONTACT DETAILS ===
+Our quotes NEVER show how to reach the clinic directly. Leave out every phone or WhatsApp number, email address,
+website or link, social media handle, street address and "call us / contact us / for questions" line — in all fields
+(inclusions, exclusions, importantNotes, accreditations). Set clinicProfileUrl to null.
+
 === LINE LIMITS ===
 Keep text concise. The PDF has strict limits:
 - inclusions: max 30 lines
@@ -203,6 +208,35 @@ function parseLenient(text: string): unknown {
       s = s.slice(0, q) + '\\"' + s.slice(q + 1)
     }
   }
+}
+
+// Our quotes never carry the clinic's own contact details; lines the AI lets through anyway are dropped here
+const EMAIL = /[\w.+-]+@[\w-]+\.[a-z]{2,}/i
+const LINK = /\bhttps?:\/\/|\bwww\.|\b[a-z0-9-]+\.(?:com|net|org|info|clinic|dental|health|mx|co|cr|tr|th|vn|id|pl|hu|kr|br)\b(?:\/|$|[\s),;])/i
+const CONTACT_WORDS = /\b(?:call|phone|tel|telephone|whats\s?app|wa\.me|line id|cell|mobile|contact us|e-?mail|website|instagram|facebook|tiktok)\b/i
+/** "+66 2 508 8449" style numbers; a "+1.000.000 IDR" upgrade price is not one */
+function hasPhone(s: string): boolean {
+  for (const m of s.matchAll(/\+\s?\d[\d\s()-]{7,}\d/g)) {
+    const digits = m[0].replace(/\D/g, '').length
+    const after = s.slice((m.index ?? 0) + m[0].length)
+    if (digits >= 9 && digits <= 15 && !/^\s*(?:[A-Z]{3}\b|baht|pesos|[$€£₫])/i.test(after)) return true
+  }
+  return false
+}
+const isContactLine = (s: string) =>
+  EMAIL.test(s) || LINK.test(s) || hasPhone(s) || (CONTACT_WORDS.test(s) && /\d{3}[\s.-]?\d{3,}|@/.test(s))
+
+function withoutContacts(q: unknown): unknown {
+  if (!q || typeof q !== 'object') return q
+  const o = { ...(q as Record<string, unknown>) }
+  for (const k of ['inclusions', 'exclusions']) {
+    if (Array.isArray(o[k])) o[k] = (o[k] as unknown[]).filter((l) => typeof l !== 'string' || !isContactLine(l))
+  }
+  for (const k of ['importantNotes', 'accreditations']) {
+    if (typeof o[k] === 'string') o[k] = (o[k] as string).split('\n').filter((l) => !isContactLine(l)).join('\n') || null
+  }
+  o.clinicProfileUrl = null
+  return o
 }
 
 /** Free-text fallback, for a reply without the tool call (or the whole list sent as one string) */
@@ -288,7 +322,7 @@ export default async (request: Request) => {
       : quotes ?? parseText(result.content?.find((c) => c.type === 'text')?.text ?? '')
 
     // Always return an array
-    const asArray = Array.isArray(parsed) ? parsed : [parsed]
+    const asArray = (Array.isArray(parsed) ? parsed : [parsed]).map(withoutContacts)
     return new Response(JSON.stringify(asArray), { status: 200, headers: CORS })
   } catch (err) {
     return new Response(JSON.stringify({ error: String(err) }), { status: 500, headers: CORS })
