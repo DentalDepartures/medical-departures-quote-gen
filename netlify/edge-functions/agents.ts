@@ -14,6 +14,7 @@ const DEFAULT_AGENTS = [
   { name: 'Melea Soriano', email: 'melea.soriano@medicaldepartures.com', phone: '+44 1633 906816' },
   { name: 'Amira Dup-et', email: 'amira.dupet@medicaldepartures.com', phone: '+1 (959) 300-2038' },
   { name: 'Moffy Suson', email: 'mornjatte.suson@medicaldepartures.com', phone: '+17058051606' },
+  { name: 'Miguel Angel Ortiz Tapia', email: 'miguel.ortiz@dentaldepartures.com', phone: '+1 639 299 7528' },
 ]
 
 export default async (request: Request) => {
