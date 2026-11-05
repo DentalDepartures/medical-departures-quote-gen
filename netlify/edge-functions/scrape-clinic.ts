@@ -31,10 +31,11 @@ export default async (request: Request) => {
     if (!res.ok && res.status !== 404) return json({ error: `Clinic page returned ${res.status}` }, 502)
     const html = await res.text()
     let clinic = parseClinic(html, url, brand)
-    // Some live MD clinics come back as the site's "page not found" shell when the URL is opened
-    // directly; the site's own pages read them from its API, so do the same.
-    if (!clinic.name && brand === 'MD') {
-      const fromApi = await readMdApi(url)
+    // Some live clinics come back as the site's "page not found" shell (MD) or an empty page shell (DD,
+    // e.g. /dentist/smile-vallarta-dr-alejandro-sanchez) when the URL is opened directly; the sites' own
+    // pages read them from the shared API, so do the same.
+    if (!clinic.name) {
+      const fromApi = await readMdApi(url, brand)
       if (fromApi?.name) clinic = fromApi
     }
     if (!clinic.name && !res.ok) return json({ error: `Clinic page returned ${res.status}` }, 502)
@@ -45,15 +46,15 @@ export default async (request: Request) => {
   }
 }
 
-async function readMdApi(url: string) {
+async function readMdApi(url: string, brand: 'DD' | 'MD') {
   const slug = mdClinicSlug(url)
   if (!slug) return null
   try {
     const res = await fetchWithTimeout(`https://api.medicaldepartures.com/core/v1/clinics/${encodeURIComponent(slug)}`, {
-      headers: { Accept: 'application/json', 'X-MD-Site-Id': '4', 'x-locale': 'en-US' },
+      headers: { Accept: 'application/json', 'X-MD-Site-Id': brand === 'DD' ? '1' : '4', 'x-locale': 'en-US' },
     }, 20000)
     if (!res.ok) return null
-    return parseMdApiClinic(await res.json(), url)
+    return parseMdApiClinic(await res.json(), url, brand)
   } catch {
     return null
   }

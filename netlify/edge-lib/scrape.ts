@@ -149,10 +149,10 @@ export function parseClinic(html: string, profileUrl: string, brand: Brand) {
   }
 }
 
-/** The slug of a medicaldepartures.com /clinic/<slug> profile URL, or null. */
+/** The slug of a medicaldepartures.com /clinic/<slug> or dentaldepartures.com /dentist/<slug> profile URL, or null. */
 export function mdClinicSlug(url: string): string | null {
   try {
-    const m = new URL(url).pathname.match(/^\/clinic\/([^/?#]+)/)
+    const m = new URL(url).pathname.match(/^\/(?:clinic|dentist)\/([^/?#]+)/)
     return m ? decodeURIComponent(m[1]) : null
   } catch {
     return null
@@ -175,7 +175,7 @@ interface MdApiClinic {
  * as the site's "page not found" shell even though the clinic is live (the page only renders when
  * reached from the site's own links).
  */
-export function parseMdApiClinic(data: MdApiClinic, profileUrl: string) {
+export function parseMdApiClinic(data: MdApiClinic, profileUrl: string, brand: Brand = 'MD') {
   const city = data.location?.city?.name?.trim() ?? ''
   const country = data.location?.country?.name?.trim() ?? ''
   const doctors: { name: string; credentials: string; imageUrl: string | null }[] = []
@@ -197,7 +197,7 @@ export function parseMdApiClinic(data: MdApiClinic, profileUrl: string) {
     .map((p) => cleanImageUrl(p.combined_image ?? p.after_image ?? p.before_image ?? ''))
     .filter((u): u is string => !!u)
   return {
-    brand: 'MD' as Brand,
+    brand,
     profileUrl,
     name: (data.name ?? '').trim(),
     location: [city, country].filter(Boolean).join(', '),
