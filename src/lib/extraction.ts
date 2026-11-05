@@ -83,6 +83,18 @@ async function callAnthropic(rawText: string, apiKey: string): Promise<QuoteData
   return parseJsonFromText(text)
 }
 
+/** Photos or scanned pages of a clinic quote → their text, written out by the AI on the server. */
+export async function readQuoteImages(images: { mediaType: string; data: string }[]): Promise<string> {
+  const res = await fetch(api('/api/extract'), {
+    method: 'POST',
+    headers: { 'Content-Type': API_BASE ? 'text/plain;charset=UTF-8' : 'application/json' },
+    body: JSON.stringify({ images }),
+  })
+  const data = await res.json().catch(() => null) as { text?: string; error?: string } | null
+  if (!res.ok || !data || data.error) throw new Error(data?.error ?? `Server error ${res.status}`)
+  return data.text ?? ''
+}
+
 /** splitTreatments: one quote per treatment instead of one per treatment plan / clinic option (the default). */
 export async function extractQuoteData(rawText: string, splitTreatments = false): Promise<QuoteData[]> {
   // 1. Try server-side proxy first (holds the API key securely)

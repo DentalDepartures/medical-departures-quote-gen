@@ -3,6 +3,8 @@ import type { AgentProfile, ClinicRow, SelectedClinic, SelectedDoctor } from '..
 import { getProfile, saveProfile, getOpsAgent, saveOpsAgent, getOpsNames, addOpsName } from '../lib/storage'
 import { fetchAgents } from '../lib/api'
 import { readPdfText } from '../lib/pdfText'
+import { photoToQuoteImage, pdfPagesToQuoteImages } from '../lib/quoteImages'
+import { readQuoteImages } from '../lib/extraction'
 import { useBrand } from '../contexts/BrandContext'
 import TabBar from './TabBar'
 import ClinicDoctorSelector from './ClinicDoctorSelector'
@@ -44,24 +46,47 @@ export default function PasteInput({ rows, clinicsLoading, clinicsError, totalCl
   const [agentSaved, setAgentSaved] = useState(!!saved)
   const [text, setText] = useState('')
   const [splitTreatments, setSplitTreatments] = useState(false)
-  // Clinic PDF upload: its text is read in the browser and put in the box below for the usual extraction
+  // Clinic PDF or photo upload: its text goes in the box below for the usual extraction. A PDF's text is read
+  // in the browser; photos (JPEG/PNG/WebP) and scanned PDFs without text are written out by the AI.
   const [pdfStatus, setPdfStatus] = useState<{ kind: 'reading' | 'ok' | 'error'; msg: string } | null>(null)
   const pdfInputRef = useRef<HTMLInputElement | null>(null)
 
-  async function handlePdf(file: File | undefined) {
-    if (!file) return
-    setPdfStatus({ kind: 'reading', msg: `Reading “${file.name}”…` })
+  async function handleFiles(list: FileList | null) {
+    const files = Array.from(list ?? [])
+    if (!files.length) return
+    const isPdf = (f: File) => f.type === 'application/pdf' || /\.pdf$/i.test(f.name)
+    const label = files.length === 1 ? `“${files[0].name}”` : `${files.length} files`
+    const done = (body: string, msg: string) => {
+      setText(body)
+      setFieldErrors((p) => ({ ...p, text: undefined }))
+      setPdfStatus({ kind: 'ok', msg: `${msg} Its text is in the box below — check it, add anything missing, then press Extract.` })
+    }
+    setPdfStatus({ kind: 'reading', msg: `Reading ${label}…` })
     try {
-      const { text: pdfText, pages } = await readPdfText(file)
-      if (pdfText.replace(/--- Page \d+ ---/g, '').trim().length < 80) {
-        setPdfStatus({ kind: 'error', msg: `“${file.name}” has no readable text (it looks like a scan or photo). Copy the patient, treatment and prices into the box by hand.` })
+      const pdfs = files.filter(isPdf)
+      if (pdfs.length && files.length > 1) throw new Error('upload one PDF on its own, or several photos together')
+      if (pdfs.length) {
+        const file = pdfs[0]
+        const { text: pdfText, pages } = await readPdfText(file)
+        if (pdfText.replace(/--- Page \d+ ---/g, '').trim().length >= 80) {
+          done(`Clinic PDF: ${file.name}\n\n${pdfText}`, `Read “${file.name}” (${pages} page${pages === 1 ? '' : 's'}).`)
+          return
+        }
+        // A scan or photo saved as PDF: read its pages as pictures
+        setPdfStatus({ kind: 'reading', msg: `“${file.name}” is a scan — reading its pages as pictures (up to a minute)…` })
+        const scan = await pdfPagesToQuoteImages(file)
+        const scanText = await readQuoteImages(scan.images)
+        const more = scan.pages > scan.images.length ? ` Only the first ${scan.images.length} of ${scan.pages} pages were read — type in anything from the rest.` : ''
+        done(`Clinic PDF (scan): ${file.name}\n\n${scanText}`, `Read the scanned “${file.name}”.${more}`)
         return
       }
-      setText(`Clinic PDF: ${file.name}\n\n${pdfText}`)
-      setFieldErrors((p) => ({ ...p, text: undefined }))
-      setPdfStatus({ kind: 'ok', msg: `Read “${file.name}” (${pages} page${pages === 1 ? '' : 's'}). Its text is in the box below — check it, add anything missing, then press Extract.` })
+      if (files.length > 10) throw new Error('upload at most 10 photos at a time')
+      setPdfStatus({ kind: 'reading', msg: `Reading the text in ${label} (up to a minute)…` })
+      const images = await Promise.all(files.map(photoToQuoteImage))
+      const photoText = await readQuoteImages(images)
+      done(`Clinic quote photo${files.length === 1 ? '' : 's'}: ${files.map((f) => f.name).join(', ')}\n\n${photoText}`, `Read ${label}.`)
     } catch (err) {
-      setPdfStatus({ kind: 'error', msg: `Could not read “${file.name}”: ${err instanceof Error ? err.message : String(err)}` })
+      setPdfStatus({ kind: 'error', msg: `Could not read ${label}: ${err instanceof Error ? err.message : String(err)}` })
     } finally {
       if (pdfInputRef.current) pdfInputRef.current.value = ''
     }
@@ -448,14 +473,15 @@ export default function PasteInput({ rows, clinicsLoading, clinicsError, totalCl
               className="text-xs font-semibold rounded-lg px-3 py-2"
               style={{ border: `1.5px solid ${config.primary}`, color: config.primary, background: 'white', cursor: 'pointer' }}
             >
-              📄 Upload clinic PDF
+              📄 Upload clinic PDF or photo
             </button>
             <input
               ref={pdfInputRef}
               type="file"
-              accept="application/pdf,.pdf"
+              accept="application/pdf,.pdf,image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+              multiple
               style={{ display: 'none' }}
-              onChange={(e) => void handlePdf(e.target.files?.[0])}
+              onChange={(e) => void handleFiles(e.target.files)}
             />
           </div>
           {pdfStatus && (
@@ -477,7 +503,7 @@ export default function PasteInput({ rows, clinicsLoading, clinicsError, totalCl
                 setText(e.target.value)
                 if (e.target.value.trim()) setFieldErrors((p) => ({ ...p, text: undefined }))
               }}
-              placeholder="Paste the clinic's quote here — WhatsApp messages and emails all work — or press “Upload clinic PDF” above. Include treatment name, price, inclusions, and patient details."
+              placeholder="Paste the clinic's quote here — WhatsApp messages and emails all work — or press “Upload clinic PDF or photo” above. Include treatment name, price, inclusions, and patient details."
               disabled={isLoading}
               className="w-full rounded-lg px-4 py-3 text-sm outline-none resize-y"
               style={{

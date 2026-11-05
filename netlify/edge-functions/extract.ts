@@ -239,6 +239,45 @@ function withoutContacts(q: unknown): unknown {
   return o
 }
 
+const READ_IMAGES_PROMPT = `These images are one clinic's quotation (photos, screenshots or scanned pages), in order.
+Write out ALL the text in them exactly as written, top to bottom, page by page — treatment names, prices, currencies,
+patient name, inclusions, exclusions and notes. Put each table row on its own line with " | " between cells.
+Start each image with "--- Page N ---". Do not summarise, translate, correct or add anything, and add no comments.
+If an image has no readable text, write "(no readable text)" for that page.`
+
+const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+
+/** Photo/scan quotes: the AI writes out their text, which goes in the agent's text box like a PDF's text does. */
+async function readImages(apiKey: string, images: unknown[]): Promise<Response> {
+  const ok = images.filter((i): i is { mediaType: string; data: string } =>
+    !!i && typeof i === 'object' && IMAGE_TYPES.includes((i as { mediaType?: string }).mediaType ?? '') &&
+    typeof (i as { data?: unknown }).data === 'string' && (i as { data: string }).data.length > 0)
+  if (!ok.length || ok.length !== images.length || ok.length > 10) {
+    return new Response(JSON.stringify({ error: 'Send 1–10 JPEG, PNG or WebP images' }), { status: 400, headers: CORS })
+  }
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+    body: JSON.stringify({
+      model: Deno.env.get('ANTHROPIC_MODEL') || 'claude-sonnet-4-6',
+      max_tokens: 8192,
+      messages: [{
+        role: 'user',
+        content: [
+          ...ok.map((i) => ({ type: 'image', source: { type: 'base64', media_type: i.mediaType, data: i.data } })),
+          { type: 'text', text: READ_IMAGES_PROMPT },
+        ],
+      }],
+    }),
+  })
+  if (!res.ok) {
+    return new Response(JSON.stringify({ error: `Anthropic error ${res.status}: ${await res.text()}` }), { status: 500, headers: CORS })
+  }
+  const result = await res.json() as { content?: { type: string; text?: string }[] }
+  const text = (result.content ?? []).filter((c) => c.type === 'text').map((c) => c.text ?? '').join('\n').trim()
+  return new Response(JSON.stringify({ text }), { status: 200, headers: CORS })
+}
+
 /** Free-text fallback, for a reply without the tool call (or the whole list sent as one string) */
 function parseText(text: string): unknown {
   try {
@@ -271,7 +310,8 @@ export default async (request: Request) => {
   let rawText: string
   let splitTreatments = false
   try {
-    const body = await request.json() as { rawText?: unknown; splitTreatments?: unknown }
+    const body = await request.json() as { rawText?: unknown; splitTreatments?: unknown; images?: unknown }
+    if (Array.isArray(body.images)) return await readImages(apiKey, body.images)
     if (typeof body.rawText !== 'string' || !body.rawText) throw new Error('rawText missing')
     rawText = body.rawText
     splitTreatments = body.splitTreatments === true
