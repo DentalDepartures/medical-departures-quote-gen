@@ -7,6 +7,7 @@ import { asset } from '../env'
 import { makeQuoteId, withUtm } from '../pdfOverlay'
 import { shapedImage } from './images'
 import { iconFor } from './icons'
+import { approxUsdEur } from '../fx'
 import { QuoteDocV3, V3_BRAND, type V3Data, type V3Item, type V3Tile } from './QuoteDocV3'
 
 let fontsReady = false
@@ -140,11 +141,12 @@ export async function generateQuotePDFv3(
 
   // Agent headshot: a photo shipped with the app as public/agents/<email name>.jpg (until the Agents tab has a photo column)
   const emailName = (agent.email || '').split('@')[0].trim().toLowerCase()
-  const [logo, hero, doctorPhoto, agentPhoto] = await Promise.all([
+  const [logo, hero, doctorPhoto, agentPhoto, priceApprox] = await Promise.all([
     trimmedLogo(brand),
     shapedImage(photos.clinic, 333, 396, 'hero', colors),
     doctor ? shapedImage(quote.doctorImageUrl, 84, 84, 'circle', colors) : Promise.resolve(null),
     emailName ? shapedImage(asset(`agents/${emailName}.jpg`), 56, 56, 'circle', colors) : Promise.resolve(null),
+    approxUsdEur(quote.price, quote.currency),
   ])
   // A doctor typed by hand (or one whose headshot won't load) shows clinic photo 2 in the circle instead of
   // an empty panel; photo 2 is then used up, so page 2 gets no photo
@@ -184,6 +186,7 @@ export async function generateQuotePDFv3(
     tiles: tilesFrom(quote, items, brand === 'DD' ? 'tooth' : 'body'),
     priceLabel: quote.pricePrefix ? quote.pricePrefix : 'Total quoted package price',
     priceText: formatPrice(quote.price, quote.currency),
+    priceApprox,
     planLabel: quote.treatmentName || '',
     includes: items,
     excludes: (quote.exclusions ?? []).map((e) => e.replace(/^[-•·\s]+/, '').trim()).filter(Boolean),

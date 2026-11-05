@@ -39,6 +39,7 @@ export interface V3Data {
   tiles: V3Tile[]
   priceLabel: string             // "Starting from" | "Total quoted package price"
   priceText: string
+  priceApprox?: string | null   // "Approx. USD 248 · EUR 221" under a price in another currency
   planLabel: string
   includes: V3Item[]
   excludes: string[]
@@ -182,6 +183,7 @@ function Cover({ d }: { d: V3Data }) {
           <View style={{ flex: 1, backgroundColor: c.navy, borderRadius: 14, padding: 17, justifyContent: 'center', marginRight: 15 }}>
             <Text style={{ color: '#fff', fontSize: 9.6, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase', opacity: 0.9 }}>{d.priceLabel}</Text>
             <Text style={{ color: '#fff', fontSize: priceSize(d.priceText), fontWeight: 800, marginTop: 5 }}>{d.priceText}</Text>
+            {d.priceApprox ? <Text style={{ color: '#fff', fontSize: 9.6, fontWeight: 600, opacity: 0.9, marginTop: 3 }}>{d.priceApprox}</Text> : null}
             <Text style={{ color: '#fff', fontSize: 8.8, fontWeight: 500, opacity: 0.85, marginTop: 5 }}>{d.planLabel}</Text>
           </View>
           <View style={{ flex: 1.05 }}>

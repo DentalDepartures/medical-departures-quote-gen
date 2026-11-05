@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { QuoteData } from '../types'
 import { useBrand } from '../contexts/BrandContext'
+import { approxUsdEur } from '../lib/fx'
 
 interface Props {
   initial: QuoteData[]
@@ -89,6 +90,13 @@ function QuoteEditor({
   const [inclText, setInclText] = useState(() => q.inclusions.join('\n'))
   const [exclText, setExclText] = useState(() => q.exclusions.join('\n'))
   const [notesText, setNotesText] = useState(() => q.importantNotes ?? '')
+  // The approximate USD/EUR line the PDF prints under a price in another currency
+  const [approx, setApprox] = useState<string | null>(null)
+  useEffect(() => {
+    let live = true
+    approxUsdEur(q.price, q.currency).then((a) => { if (live) setApprox(a) })
+    return () => { live = false }
+  }, [q.price, q.currency])
 
   const inclCount = inclText.split('\n').filter((l) => l.trim().length > 0).length
   const exclCount = exclText.split('\n').filter((l) => l.trim().length > 0).length
@@ -213,6 +221,11 @@ function QuoteEditor({
             <ErrorMsg msg={errors.price} />
           </Field>
         </div>
+        {approx && (
+          <p className="text-xs mt-1" style={{ color: '#888' }}>
+            Under the price the PDF will also show: <strong>{approx}</strong> (today's rate)
+          </p>
+        )}
       </Section>
 
       {/* Package */}
