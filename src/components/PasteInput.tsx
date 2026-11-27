@@ -20,6 +20,7 @@ interface Props {
     clinic: SelectedClinic | null,
     doctor: SelectedDoctor | null,
     splitTreatments: boolean,
+    flyer: { files: File[] } | null,
   ) => void
   isLoading: boolean
   error: string | null
@@ -38,7 +39,7 @@ interface FieldErrors {
 }
 
 export default function PasteInput({ rows, clinicsLoading, clinicsError, totalClinicRowsLoaded, onGenerate, isLoading, error, onAddClinic, preselectClinic }: Props) {
-  const { config } = useBrand()
+  const { config, brand } = useBrand()
   const saved = getProfile()
   const [name, setName] = useState(saved?.name ?? '')
   const [email, setEmail] = useState(saved?.email ?? '')
@@ -50,6 +51,9 @@ export default function PasteInput({ rows, clinicsLoading, clinicsError, totalCl
   // in the browser; photos (JPEG/PNG/WebP) and scanned PDFs without text are written out by the AI.
   const [pdfStatus, setPdfStatus] = useState<{ kind: 'reading' | 'ok' | 'error'; msg: string } | null>(null)
   const pdfInputRef = useRef<HTMLInputElement | null>(null)
+  // "Flyer" ticked: the quote and the uploaded original go to the brand's flyers folder, and the tracker marks it
+  const [flyer, setFlyer] = useState(false)
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
 
   async function handleFiles(list: FileList | null) {
     const files = Array.from(list ?? [])
@@ -57,6 +61,7 @@ export default function PasteInput({ rows, clinicsLoading, clinicsError, totalCl
     const isPdf = (f: File) => f.type === 'application/pdf' || /\.pdf$/i.test(f.name)
     const label = files.length === 1 ? `“${files[0].name}”` : `${files.length} files`
     const done = (body: string, msg: string) => {
+      setUploadedFiles(files)
       setText(body)
       setFieldErrors((p) => ({ ...p, text: undefined }))
       setPdfStatus({ kind: 'ok', msg: `${msg} Its text is in the box below — check it, add anything missing, then press Extract.` })
@@ -162,7 +167,7 @@ export default function PasteInput({ rows, clinicsLoading, clinicsError, totalCl
     const profile: AgentProfile = { name, email, phone }
     saveProfile(profile)
     setOpsNames(addOpsName(opsAgent))
-    onGenerate(text.trim(), profile, selectedClinic, selectedDoctor, splitTreatments)
+    onGenerate(text.trim(), profile, selectedClinic, selectedDoctor, splitTreatments, flyer ? { files: uploadedFiles } : null)
   }
 
   function handleSelectionChange(clinic: SelectedClinic | null, doctor: SelectedDoctor | null) {
@@ -466,6 +471,7 @@ export default function PasteInput({ rows, clinicsLoading, clinicsError, totalCl
             >
               Raw Quote Data
             </div>
+            <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={() => pdfInputRef.current?.click()}
@@ -475,6 +481,15 @@ export default function PasteInput({ rows, clinicsLoading, clinicsError, totalCl
             >
               📄 Upload clinic PDF or photo
             </button>
+            <label
+              className="flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
+              style={{ color: config.primary }}
+              title="Tick when the upload is a flyer: the quote and the original flyer are saved to the flyers folder, and the Quotes Tracker marks it as Flyer"
+            >
+              <input type="checkbox" checked={flyer} onChange={(e) => setFlyer(e.target.checked)} disabled={isLoading} />
+              Flyer
+            </label>
+            </div>
             <input
               ref={pdfInputRef}
               type="file"
@@ -493,6 +508,15 @@ export default function PasteInput({ rows, clinicsLoading, clinicsError, totalCl
               }}
             >
               {pdfStatus.msg}
+            </p>
+          )}
+
+          {flyer && (
+            <p className="text-xs mb-2 rounded-lg px-3 py-2" style={{ background: '#fff8e1', color: '#7a5c00' }}>
+              <strong>Flyer:</strong> the quote PDF and{' '}
+              {uploadedFiles.length === 1 ? `the original “${uploadedFiles[0].name}”` : uploadedFiles.length ? `the ${uploadedFiles.length} original photos` : 'the uploaded flyer'}{' '}
+              will be saved to the {brand} flyers folder, and the Quotes Tracker will mark it as Flyer.
+              {!uploadedFiles.length && ' Upload the flyer file above so the original is saved too.'}
             </p>
           )}
 

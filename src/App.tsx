@@ -3,7 +3,7 @@ import type { AgentProfile, QuoteData, ClinicRow, SelectedClinic, SelectedDoctor
 import { extractQuoteData } from './lib/extraction'
 import { generateQuotePDF } from './lib/pdfService'
 import { BrandProvider, useBrand } from './contexts/BrandContext'
-import { fetchClinicRows, uploadQuote, logQuote, reportError } from './lib/api'
+import { fetchClinicRows, uploadQuote, uploadFlyerOriginal, logQuote, reportError } from './lib/api'
 import { getProfile, getOpsAgent } from './lib/storage'
 
 import PasteInput from './components/PasteInput'
@@ -35,6 +35,9 @@ function AppContent() {
   const [pendingClinic, setPendingClinic] = useState<SelectedClinic | null>(null)
   const [pendingDoctor, setPendingDoctor] = useState<SelectedDoctor | null>(null)
   const [pendingSplit, setPendingSplit] = useState(false)
+  const [pendingFlyer, setPendingFlyer] = useState<{ files: File[] } | null>(null)
+  // Set when the agent ticked "Flyer": the original files to save next to the quote in the flyers folder
+  const [flyer, setFlyer] = useState<{ files: File[] } | null>(null)
   const [preselectClinic, setPreselectClinic] = useState<string | null>(null)
   const [clinicNotice, setClinicNotice] = useState<{ clinic: string; warnings: string[]; message?: string } | null>(null)
 
@@ -63,8 +66,10 @@ function AppContent() {
     clinic: SelectedClinic | null,
     doctor: SelectedDoctor | null,
     splitTreatments = false,
+    flyerUpload: { files: File[] } | null = null,
   ) {
     setProfile(p)
+    setFlyer(flyerUpload)
     setIsLoading(true)
     setExtractError(null)
     try {
@@ -110,6 +115,7 @@ function AppContent() {
         setPendingClinic(clinic)
         setPendingDoctor(doctor)
         setPendingSplit(splitTreatments)
+        setPendingFlyer(flyerUpload)
         setShowApiKeyModal(true)
       } else {
         setExtractError(msg)
@@ -123,7 +129,7 @@ function AppContent() {
   function handleApiKeySaved() {
     setShowApiKeyModal(false)
     if (pendingRawText && profile) {
-      void handleGenerate(pendingRawText, profile, pendingClinic, pendingDoctor, pendingSplit)
+      void handleGenerate(pendingRawText, profile, pendingClinic, pendingDoctor, pendingSplit, pendingFlyer)
       setPendingRawText(null)
       setPendingClinic(null)
       setPendingDoctor(null)
@@ -136,6 +142,24 @@ function AppContent() {
     try {
       const failures: string[] = []
       const finished: QuoteData[] = []
+      // Flyer: save the original flyer file(s) once, then link them on every quote's tracker row
+      let flyerLink = ''
+      let flyerError = ''
+      if (flyer && !TEST_MODE) {
+        const links: string[] = []
+        const patient = (data[0]?.patientName || 'Patient').replace(/[\\/:*?"<>|]+/g, ' ').trim()
+        for (const file of flyer.files) {
+          try {
+            const { webViewLink } = await uploadFlyerOriginal({ file, filename: `${patient} - original flyer - ${file.name}`, brand })
+            if (webViewLink) links.push(webViewLink)
+          } catch (err) {
+            flyerError = err instanceof Error ? err.message : String(err)
+            failures.push(`Original flyer “${file.name}” was not saved to the flyers folder: ${flyerError}`)
+            void reportError({ errorType: 'network', message: flyerError, step: 'Flyer original upload', patientName: data[0]?.patientName, agentName: profile.name, agentEmail: profile.email })
+          }
+        }
+        flyerLink = links.join('\n')
+      }
       for (const quote of data) {
         try {
           const { pdfBytes, filename, quoteId } = await generateQuotePDF(quote, profile, brand)
@@ -146,7 +170,7 @@ function AppContent() {
           let webViewLink = ''
           let uploadError = ''
           try {
-            ;({ webViewLink } = await uploadQuote({ pdfBytes, filename, quote, brand }))
+            ;({ webViewLink } = await uploadQuote({ pdfBytes, filename, quote, brand, flyer: !!flyer }))
           } catch (uploadErr) {
             uploadError = String(uploadErr)
             failures.push(`${label} — the PDF downloaded but could not be saved to Drive: ${uploadError}`)
@@ -154,7 +178,8 @@ function AppContent() {
           }
           // The tracker row is written even when the Drive upload failed — it then carries the error
           try {
-            await logQuote({ quoteId, quote, agent: profile, opsAgent: getOpsAgent(), brand, webViewLink, uploadError })
+            const errors = [uploadError, flyerError && `original flyer: ${flyerError}`].filter(Boolean).join('; ')
+            await logQuote({ quoteId, quote, agent: profile, opsAgent: getOpsAgent(), brand, webViewLink, uploadError: errors, flyer: !!flyer, flyerLink })
           } catch (logErr) {
             const msg = String(logErr)
             failures.push(`${label} — the PDF downloaded but was not recorded in the Quotes Tracker (Yana has been emailed): ${msg}`)
@@ -181,6 +206,7 @@ function AppContent() {
 
   function handleNewQuote() {
     setQuotes(null)
+    setFlyer(null)
     setExtractError(null)
     setStep('paste')
   }
@@ -260,7 +286,7 @@ function AppContent() {
   }
 
   if (step === 'done' && quotes) {
-    return <QuoteDone quotes={quotes} onNewQuote={handleNewQuote} />
+    return <QuoteDone quotes={quotes} onNewQuote={handleNewQuote} flyer={!!flyer} />
   }
 
   return null

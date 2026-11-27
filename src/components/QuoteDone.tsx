@@ -5,11 +5,13 @@ import { TEST_MODE } from '../lib/env'
 interface Props {
   quotes: QuoteData[]
   onNewQuote: () => void
+  flyer?: boolean
 }
 
-export default function QuoteDone({ quotes, onNewQuote }: Props) {
-  const { config } = useBrand()
+export default function QuoteDone({ quotes, onNewQuote, flyer }: Props) {
+  const { config, brand } = useBrand()
   const count = quotes.length
+  const where = flyer ? `the ${brand} flyers folder (with the original flyer)` : "the clinic's Drive folder"
 
   return (
     <div className="min-h-screen" style={{ background: config.pageBackground }}>
@@ -67,8 +69,8 @@ export default function QuoteDone({ quotes, onNewQuote }: Props) {
           {TEST_MODE
             ? `Test version: ${count > 1 ? `${count} PDF files were` : 'the PDF was'} saved to your downloads folder only.`
             : count > 1
-              ? `${count} PDF files have been saved to your downloads folder and to the clinic's Drive folder.`
-              : "The PDF has been saved to your downloads folder and to the clinic's Drive folder."}
+              ? `${count} PDF files have been saved to your downloads folder and to ${where}.`
+              : `The PDF has been saved to your downloads folder and to ${where}.`}
         </p>
       </div>
     </div>

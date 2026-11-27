@@ -52,28 +52,54 @@ export async function addClinic(payload: NewClinicPayload): Promise<{ ok: boolea
   )
 }
 
-/** Saves the quote PDF to the clinic's Drive folder and returns its link. */
+function toBase64(bytes: Uint8Array): string {
+  const chunkSize = 8192
+  const chunks: string[] = []
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    chunks.push(String.fromCharCode(...bytes.subarray(i, i + chunkSize)))
+  }
+  return btoa(chunks.join(''))
+}
+
+/** Saves the quote PDF to the clinic's Drive folder (a flyer quote: the brand's flyers folder) and returns its link. */
 export async function uploadQuote(params: {
   pdfBytes: Uint8Array
   filename: string
   quote: QuoteData
   brand: string
+  flyer?: boolean
 }): Promise<{ webViewLink: string }> {
-  const { pdfBytes, filename, quote, brand } = params
-  const chunkSize = 8192
-  const chunks: string[] = []
-  for (let i = 0; i < pdfBytes.length; i += chunkSize) {
-    chunks.push(String.fromCharCode(...pdfBytes.subarray(i, i + chunkSize)))
-  }
-  const pdfBase64 = btoa(chunks.join(''))
-
+  const { pdfBytes, filename, quote, brand, flyer } = params
   return parseJson(
     await fetch(api('/api/upload-quote'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pdfBase64, filename, brand, googleFolder: quote.googleFolder }),
+      body: JSON.stringify({ pdfBase64: toBase64(pdfBytes), filename, brand, googleFolder: quote.googleFolder, flyer: !!flyer }),
     }),
     'Quote upload',
+  )
+}
+
+/** Largest original flyer file the app saves to Drive (bigger: the quote is still made, the original is not saved). */
+export const MAX_FLYER_ORIGINAL_MB = 15
+
+function mimeOf(file: File): string {
+  if (file.type) return file.type
+  const n = file.name.toLowerCase()
+  return n.endsWith('.pdf') ? 'application/pdf' : n.endsWith('.png') ? 'image/png' : n.endsWith('.webp') ? 'image/webp' : 'image/jpeg'
+}
+
+/** Saves the original flyer file the agent uploaded (PDF or photo) to the brand's flyers folder; returns its link. */
+export async function uploadFlyerOriginal(params: { file: File; filename: string; brand: string }): Promise<{ webViewLink: string }> {
+  const { file, filename, brand } = params
+  if (file.size > MAX_FLYER_ORIGINAL_MB * 1024 * 1024) throw new Error(`it is over ${MAX_FLYER_ORIGINAL_MB} MB`)
+  return parseJson(
+    await fetch(api('/api/upload-quote'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fileBase64: toBase64(new Uint8Array(await file.arrayBuffer())), mimeType: mimeOf(file), filename, brand, flyer: true }),
+    }),
+    'Flyer upload',
   )
 }
 
@@ -89,8 +115,10 @@ export async function logQuote(params: {
   brand: string
   webViewLink: string
   uploadError?: string
+  flyer?: boolean
+  flyerLink?: string
 }): Promise<void> {
-  const { quoteId, quote, agent, opsAgent, brand, webViewLink, uploadError } = params
+  const { quoteId, quote, agent, opsAgent, brand, webViewLink, uploadError, flyer, flyerLink } = params
   const body = JSON.stringify({
     quoteId,
     patientName: quote.patientName,
@@ -102,6 +130,8 @@ export async function logQuote(params: {
     quoteDate: quote.quoteDate,
     webViewLink,
     uploadError: uploadError ?? '',
+    flyer: !!flyer,
+    flyerLink: flyerLink ?? '',
   })
   let lastErr: unknown
   for (const wait of [0, 3000, 8000]) {

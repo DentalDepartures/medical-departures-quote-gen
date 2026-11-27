@@ -33,8 +33,10 @@ export default async (request: Request) => {
       quoteDate?: string | null
       webViewLink?: string
       uploadError?: string
+      flyer?: boolean
+      flyerLink?: string
     }
-    const { quoteId, patientName, clinicName, brand, agentName, agentEmail, opsAgent, quoteDate, webViewLink, uploadError } = body
+    const { quoteId, patientName, clinicName, brand, agentName, agentEmail, opsAgent, quoteDate, webViewLink, uploadError, flyer, flyerLink } = body
     if (!quoteId) return json({ error: 'quoteId is required' }, 400)
 
     const trackerId = env('TRACKER_SPREADSHEET_ID', env('CLINIC_APP_SPREADSHEET_ID', ''))
@@ -79,6 +81,22 @@ export default async (request: Request) => {
       const col = headers.indexOf(name)
       while (row.length <= col) row.push('')
       row[col] = value
+    }
+    // Flyer quotes: "Flyer" in the flyer column (M) and the original flyer's Drive link(s) in the next one (N).
+    // The columns are found by their headers ("Flyer or Not", "Origianl Flyer Link"), whatever the exact spelling.
+    if (flyer) {
+      const flyerCols = (hs: string[]) => [
+        hs.findIndex((h) => h.includes('flyer') && !h.includes('link')),
+        hs.findIndex((h) => h.includes('flyer') && h.includes('link')),
+      ]
+      let [markCol, linkCol] = flyerCols(headers)
+      if (markCol < 0 || linkCol < 0) {
+        ;[markCol, linkCol] = flyerCols(await ensureHeaders(token, trackerId, trackerTab, ['Flyer or Not', 'Original Flyer Link']))
+      }
+      for (const [col, value] of [[markCol, 'Flyer'], [linkCol, (flyerLink ?? '').trim()]] as const) {
+        while (row.length <= col) row.push('')
+        row[col] = value
+      }
     }
     // Google can be slow to answer appends; give it longer than the default before giving up
     await sheetsAppend(token, trackerId, `${trackerTab}!A:Z`, [row], 25000)
